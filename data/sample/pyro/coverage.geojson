@@ -1,0 +1,137 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "cell_id": "c_a"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       10.12345,
+       45.0
+      ],
+      [
+       10.52345,
+       45.0
+      ],
+      [
+       10.52345,
+       45.3
+      ],
+      [
+       10.12345,
+       45.3
+      ],
+      [
+       10.12345,
+       45.0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "cell_id": "c_b"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       30.0,
+       -26.0
+      ],
+      [
+       30.4,
+       -26.0
+      ],
+      [
+       30.4,
+       -25.7
+      ],
+      [
+       30.0,
+       -25.7
+      ],
+      [
+       30.0,
+       -26.0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "cell_id": "c_c"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       11.0,
+       45.5
+      ],
+      [
+       11.4,
+       45.5
+      ],
+      [
+       11.4,
+       45.8
+      ],
+      [
+       11.0,
+       45.8
+      ],
+      [
+       11.0,
+       45.5
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "cell_id": "c_d"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       31.0,
+       -26.5
+      ],
+      [
+       31.4,
+       -26.5
+      ],
+      [
+       31.4,
+       -26.2
+      ],
+      [
+       31.0,
+       -26.2
+      ],
+      [
+       31.0,
+       -26.5
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

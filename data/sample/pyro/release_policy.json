@@ -1,0 +1,50 @@
+{
+ "version": "x",
+ "groups": {
+  "c_a": {
+   "eligible": true,
+   "static_projection_model": "seasonal",
+   "static_projection_months": [
+    1,
+    2,
+    3
+   ]
+  },
+  "c_b": {
+   "eligible": true,
+   "static_projection_model": "regional_seasonal",
+   "static_projection_months": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ]
+  },
+  "c_c": {
+   "eligible": false,
+   "static_projection_model": null,
+   "static_projection_months": [
+    1,
+    2,
+    3
+   ]
+  },
+  "c_d": {
+   "eligible": true,
+   "static_projection_model": null,
+   "static_projection_months": [
+    1,
+    2,
+    3
+   ]
+  }
+ }
+}

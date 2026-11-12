@@ -1,0 +1,57 @@
+{
+ "schema_version": "x",
+ "cells": [
+  {
+   "cell_id": "c_a",
+   "latitude": 45.0,
+   "longitude": 10.12345,
+   "area_km2": 1440.0,
+   "continent": "Europe",
+   "forecast_supported": true,
+   "static_projection_months": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "cell_id": "c_b",
+   "latitude": -26.0,
+   "longitude": 30.0,
+   "area_km2": 1440.0,
+   "continent": "Africa",
+   "forecast_supported": true,
+   "static_projection_months": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "cell_id": "c_c",
+   "latitude": 45.5,
+   "longitude": 11.0,
+   "area_km2": 1440.0,
+   "continent": "Europe",
+   "forecast_supported": false,
+   "static_projection_months": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "cell_id": "c_d",
+   "latitude": -26.5,
+   "longitude": 31.0,
+   "area_km2": 1440.0,
+   "continent": "Africa",
+   "forecast_supported": true,
+   "static_projection_months": [
+    1,
+    2,
+    3
+   ]
+  }
+ ]
+}

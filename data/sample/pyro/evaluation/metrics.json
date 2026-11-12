@@ -1,0 +1,14 @@
+{
+ "version": "modis_native41_v6",
+ "released_cells": 3,
+ "catalog_cells": 4,
+ "released_area_km2": 4320.4,
+ "released_test": {
+  "n": 100,
+  "accuracy": 0.78864,
+  "recall": 0.39554,
+  "precision": 0.57864,
+  "brier": 0.1508,
+  "roc_auc": 0.75059
+ }
+}
