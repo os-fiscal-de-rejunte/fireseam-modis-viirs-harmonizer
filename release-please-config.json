@@ -3,7 +3,7 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "package-name": "REPO_NAME",
+      "package-name": "modis-viirs-harmonizer",
       "bump-minor-pre-major": true,
       "changelog-sections": [
         { "type": "feat", "section": "✨ Features" },

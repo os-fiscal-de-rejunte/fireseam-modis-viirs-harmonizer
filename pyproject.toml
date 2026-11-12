@@ -1,8 +1,15 @@
 [project]
-name = "repo-name"
+name = "modis-viirs-harmonizer"
 version = "0.0.0"
+description = "Harmonized MODIS + VIIRS active-fire calendar for the Pantanal region"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "scikit-learn>=1.4",
+    "requests>=2.31",
+]
 
 [project.optional-dependencies]
 dev = ["ruff>=0.8", "pytest>=8", "pre-commit>=4"]
@@ -17,9 +24,11 @@ where = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["web"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
