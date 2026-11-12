@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pantanal Fire Record - MODIS and VIIRS harmonized</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23ff9632'/%3E%3C/svg%3E"
+    />
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <div id="app" data-mode="past">
+      <div id="globe" aria-label="Globe"></div>
+
+      <header class="top">
+        <div class="brand">
+          <h1>Pantanal Fire Record</h1>
+          <p>One weekly calendar from two satellite generations, 2001-2026</p>
+        </div>
+        <nav class="tabs" id="tabs" aria-label="Mode">
+          <button class="tab is-active" data-mode="past" type="button">
+            Past <span>harmonized record</span>
+          </button>
+          <button class="tab" data-mode="outlook" type="button" id="tab-outlook" hidden>
+            Outlook <span>PYRO forecast</span>
+          </button>
+        </nav>
+      </header>
+
+      <aside class="panel side-left only-past" aria-label="Controls">
+        <div class="field">
+          <label for="year">Year <output id="year-out">2020</output></label>
+          <input type="range" id="year" min="0" max="0" step="1" value="0" />
+        </div>
+        <div class="field">
+          <label for="week">Week <output id="week-out">1</output></label>
+          <input type="range" id="week" min="1" max="52" step="1" value="1" />
+        </div>
+        <div class="row">
+          <button type="button" class="btn" id="play">Play</button>
+          <button type="button" class="btn accent" id="hear">Hear 2020</button>
+        </div>
+        <p class="hint" id="audio-note" hidden></p>
+        <div class="chips" role="group" aria-label="Layers">
+          <label class="chip modis"><input type="checkbox" id="t-modis" checked /><i></i>MODIS</label>
+          <label class="chip viirs"><input type="checkbox" id="t-viirs" checked /><i></i>VIIRS</label>
+          <label class="chip ghost"><input type="checkbox" id="t-ghost" /><i></i>Ghosts only</label>
+        </div>
+        <label class="switch"
+          ><input type="checkbox" id="t-cum" /><span>Cumulative since week 1</span></label
+        >
+        <ul class="legend">
+          <li><i class="dot modis"></i>MODIS (Terra + Aqua)</li>
+          <li><i class="dot viirs"></i>VIIRS (S-NPP)</li>
+          <li><i class="dot ghost"></i>Ghost: seen by Aqua or S-NPP but not the other</li>
+        </ul>
+        <p class="hint warn" id="ghost-note" hidden>
+          Aqua orbit drifting since 2022 - ghost counts not comparable
+        </p>
+      </aside>
+
+      <aside class="panel side-left only-outlook" aria-label="Outlook">
+        <h2>What is projected</h2>
+        <p class="event" id="fc-event"></p>
+        <p class="cover" id="fc-cover"></p>
+        <p class="caveat">
+          Seasonal projection from 2020-2023 MODIS history. Conditional probability of a satellite
+          detection, not of ignition. No weather forecast input.
+        </p>
+        <p class="credit">Model: PYRO (exp-pyro-predictive)</p>
+      </aside>
+
+      <aside class="panel side-right only-past" aria-label="Headline">
+        <h2>Why it holds up</h2>
+        <div class="stat">
+          <div class="big"><b id="h-model">-</b><em>vs</em><span id="h-base">-</span></div>
+          <p id="h-err-label">Weekly error, model vs baseline</p>
+        </div>
+        <div class="stat">
+          <div class="big"><b id="h-unmatched">-</b></div>
+          <p id="h-unmatched-label">of S-NPP detections had no Aqua match in the same overpass</p>
+        </div>
+        <div class="stat">
+          <div class="big">
+            <b id="h-ev-modis" class="c-modis">-</b><em>vs</em
+            ><b id="h-ev-viirs" class="c-viirs">-</b>
+          </div>
+          <p id="h-ev-label">Fire events, MODIS vs VIIRS</p>
+        </div>
+        <p class="hint warn" id="baseline-note" hidden>
+          The published calendar uses the monthly ratio baseline because the model did not beat it.
+        </p>
+      </aside>
+
+      <aside class="panel side-right only-outlook" aria-label="Model skill">
+        <h2>Held-out test skill</h2>
+        <dl class="skill" id="fc-skill"></dl>
+        <p class="hint" id="fc-n"></p>
+      </aside>
+
+      <div class="readout only-past" id="readout" aria-live="polite">
+        <div class="when"><span id="r-date">-</span><span class="badge" id="r-status">-</span></div>
+        <div class="nums">
+          <div><b id="r-modis" class="c-modis">-</b><small>MODIS</small></div>
+          <div><b id="r-viirs" class="c-viirs">-</b><small>VIIRS</small></div>
+          <div><b id="r-harm">-</b><small>harmonized</small></div>
+        </div>
+        <p class="empty" id="r-empty" hidden></p>
+      </div>
+
+      <section class="dock only-past" id="dock-past" data-view="calendar" aria-label="Calendar">
+        <div class="dock-head">
+          <h2>Weekly fire activity</h2>
+          <div class="seg" role="group" aria-label="Bottom view">
+            <button type="button" class="is-active" data-view="calendar" aria-pressed="true">
+              Calendar
+            </button>
+            <button type="button" data-view="yearly" aria-pressed="false">Yearly totals</button>
+          </div>
+          <p class="view-calendar">
+            <i class="sw obs"></i>Observed: VIIRS
+            <i class="sw est"></i>Estimated: MODIS converted to VIIRS-equivalent
+            <i class="sw gap"></i>No data
+          </p>
+          <p class="view-yearly">
+            Raw counts jump when VIIRS starts in 2012. The harmonized series puts 2001-2026 on one
+            scale.
+          </p>
+        </div>
+        <canvas id="cal" class="view-calendar"></canvas>
+        <canvas id="yr" class="view-yearly"></canvas>
+      </section>
+
+      <section class="dock only-outlook" aria-label="Month">
+        <div class="dock-head">
+          <h2>Probability of a detection in an 8-day window, by month</h2>
+          <div class="bar"><span>0</span><i id="fc-bar"></i><span id="fc-max">-</span></div>
+        </div>
+        <div class="months" id="months"></div>
+      </section>
+
+      <div id="tip" role="tooltip" hidden></div>
+      <div id="fatal" hidden></div>
+    </div>
+  </body>
+</html>
