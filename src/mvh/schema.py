@@ -140,6 +140,61 @@ def _check_points(root: Path) -> None:
             _fail(f"points/{path.name}: not listed in points/index.json")
 
 
+def _check_cube(root: Path, cal: dict) -> None:
+    index = _load(root / "cube" / "index.json")
+    name = "cube/index.json"
+    if not isinstance(index, dict) or (index.get("nx"), index.get("ny")) != (
+        config.NX,
+        config.NY,
+    ):
+        _fail(f"{name}: nx, ny must equal {config.NX}, {config.NY}")
+    years = index.get("years")
+    if not isinstance(years, dict):
+        _fail(f"{name}: years must be an object keyed by year")
+    n_cells = config.NX * config.NY
+    valid = {str(y) for y in range(config.YEAR_START, config.YEAR_END + 1)}
+    sums: dict[tuple[int, int], tuple[int, int]] = {}
+    for key, entry in years.items():
+        at = f"{name}: years[{key!r}]"
+        if key not in valid:
+            _fail(f"{at} key must be a year in {config.YEAR_START}..{config.YEAR_END}")
+        if not isinstance(entry, dict) or not (_is_int(entry.get("n")) and entry["n"] >= 0):
+            _fail(f"{at}.n must be int >= 0")
+        n = entry["n"]
+        bin_path = root / "cube" / f"{key}.bin"
+        if not bin_path.is_file():
+            _fail(f"cube/{key}.bin: file is missing")
+        if bin_path.stat().st_size != 7 * n:
+            _fail(f"cube/{key}.bin: size must be {7 * n} bytes (7 * n)")
+        cell = np.fromfile(bin_path, dtype="<u2", count=n, offset=0).astype(np.int64)
+        week = np.fromfile(bin_path, dtype="u1", count=n, offset=2 * n).astype(np.int64)
+        modis = np.fromfile(bin_path, dtype="<u2", count=n, offset=3 * n).astype(np.int64)
+        viirs = np.fromfile(bin_path, dtype="<u2", count=n, offset=5 * n).astype(np.int64)
+        if n and cell.max() >= n_cells:
+            _fail(f"cube/{key}.bin: cell must be below {n_cells}")
+        if n and (week.min() < 1 or week.max() > config.WEEKS_PER_YEAR):
+            _fail(f"cube/{key}.bin: week must be within 1..{config.WEEKS_PER_YEAR}")
+        if np.any(np.diff(week * 65536 + cell) <= 0):
+            _fail(f"cube/{key}.bin: entries must be sorted by week then cell and unique")
+        if np.any(modis + viirs <= 0):
+            _fail(f"cube/{key}.bin: every entry needs a count above zero")
+        for w in range(1, config.WEEKS_PER_YEAR + 1):
+            sel = week == w
+            sums[(int(key), w)] = (int(modis[sel].sum()), int(viirs[sel].sum()))
+    for wk in cal["weeks"]:
+        got = sums.get((wk["year"], wk["week"]), (0, 0))
+        for i, sensor in enumerate(("modis", "viirs")):
+            want = wk[sensor]
+            if want is not None and got[i] != want:
+                _fail(
+                    f"cube: {sensor} sum of {wk['year']} week {wk['week']} is {got[i]}, "
+                    f"calendar has {want}"
+                )
+    for path in (root / "cube").glob("*.bin"):
+        if path.stem not in years:
+            _fail(f"cube/{path.name}: not listed in cube/index.json")
+
+
 def _check_metrics(metrics, method: str) -> None:
     name = "metrics.json"
 
@@ -208,6 +263,8 @@ def _check_metrics(metrics, method: str) -> None:
 
 def validate_export(root: Path) -> None:
     root = Path(root)
-    method = _check_calendar(_load(root / "calendar.json"))
+    cal = _load(root / "calendar.json")
+    method = _check_calendar(cal)
     _check_points(root)
+    _check_cube(root, cal)
     _check_metrics(_load(root / "metrics.json"), method)

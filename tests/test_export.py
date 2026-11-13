@@ -85,11 +85,13 @@ def test_second_run_is_byte_identical_and_removes_stale_files(exported, tmp_path
     export_all(SAMPLE, out)
     first = _hashes(out)
     (out / "points" / "1999.bin").write_bytes(b"x" * 8)
+    (out / "cube" / "1999.bin").write_bytes(b"x" * 7)
     keep = out / "forecast.json"
     keep.write_text("{}", encoding="utf-8")
     export_all(SAMPLE, out)
     second = _hashes(out)
     assert not (out / "points" / "1999.bin").exists()
+    assert not (out / "cube" / "1999.bin").exists()
     assert keep.is_file()
     assert {k: v for k, v in second.items() if k != "forecast.json"} == first
     assert first == {k: v for k, v in _hashes(exported).items()}
@@ -102,3 +104,54 @@ def test_week_status(exported):
     assert early["status"] == "estimated"
     assert early["pred"] is not None
     assert by[(2026, 28)]["status"] == "gap"
+
+
+def _read_cube(path: Path) -> dict[str, np.ndarray]:
+    raw = path.read_bytes()
+    n = len(raw) // 7
+    return {
+        "cell": np.frombuffer(raw, "<u2", n, 0),
+        "week": np.frombuffer(raw, "u1", n, 2 * n),
+        "modis": np.frombuffer(raw, "<u2", n, 3 * n),
+        "viirs": np.frombuffer(raw, "<u2", n, 5 * n),
+    }
+
+
+def test_cube_2020_matches_the_detections(exported):
+    from mvh.grid import cell_index
+
+    index = json.loads((exported / "cube" / "index.json").read_text(encoding="utf-8"))
+    assert (index["nx"], index["ny"]) == (config.NX, config.NY)
+    assert sorted(index["years"]) == ["2011", "2020"]
+    cube = _read_cube(exported / "cube" / "2020.bin")
+    assert len(cube["cell"]) == index["years"]["2020"]["n"]
+    for sensor, col in (("modis", "modis"), ("viirs", "viirs")):
+        df = load_firms(sensor, SAMPLE)
+        df = df[df["year"] == 2020]
+        cx, cy = cell_index(df["lon"].to_numpy(), df["lat"].to_numpy())
+        want: dict[tuple[int, int], int] = {}
+        cells = (cy.astype(int) * config.NX + cx).tolist()
+        for c, w in zip(cells, df["week"].tolist(), strict=True):
+            want[(c, int(w))] = want.get((c, int(w)), 0) + 1
+        got = {
+            (int(c), int(w)): int(v)
+            for c, w, v in zip(cube["cell"], cube["week"], cube[col], strict=True)
+            if v
+        }
+        assert got == want
+    order = cube["week"].astype(np.int64) * 65536 + cube["cell"]
+    assert np.all(np.diff(order) > 0)
+    assert np.all(cube["modis"].astype(int) + cube["viirs"] > 0)
+
+
+def test_cube_count_above_uint16_fails():
+    import pandas as pd
+
+    from mvh.export import _cube_blocks
+
+    cube = pd.DataFrame(
+        {"year": [2020], "week": [1], "cx": [0], "cy": [0],
+         "n_terra": [40000], "n_aqua": [30000], "n_viirs": [0]}
+    )  # fmt: skip
+    with pytest.raises(ValueError, match="65535"):
+        _cube_blocks(cube)

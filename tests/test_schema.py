@@ -129,3 +129,37 @@ def test_missing_calendar_rejected(export):
     (export / "calendar.json").unlink()
     with pytest.raises(ValueError, match="calendar.json"):
         validate_export(export)
+
+
+def _cube_n(export, year="2020"):
+    index = json.loads((export / "cube" / "index.json").read_text(encoding="utf-8"))
+    return index["years"][year]["n"]
+
+
+def test_truncated_cube_rejected(export):
+    path = export / "cube" / "2020.bin"
+    path.write_bytes(path.read_bytes()[:-1])
+    with pytest.raises(ValueError, match=r"cube/2020.bin: size must be"):
+        validate_export(export)
+
+
+def test_cube_sum_must_match_calendar(export):
+    path = export / "cube" / "2020.bin"
+    raw = bytearray(path.read_bytes())
+    n = _cube_n(export)
+    raw[5 * n + 1] ^= 1  # high byte of the first viirs count: off by 256, never zero
+    path.write_bytes(bytes(raw))
+    with pytest.raises(ValueError, match="calendar has"):
+        validate_export(export)
+
+
+def test_orphan_cube_rejected(export):
+    (export / "cube" / "1999.bin").write_bytes(b"")
+    with pytest.raises(ValueError, match="not listed in cube/index.json"):
+        validate_export(export)
+
+
+def test_cube_grid_must_match_config(export):
+    _edit(export / "cube" / "index.json", lambda d: d.update(nx=44))
+    with pytest.raises(ValueError, match="nx, ny must equal 45, 70"):
+        validate_export(export)

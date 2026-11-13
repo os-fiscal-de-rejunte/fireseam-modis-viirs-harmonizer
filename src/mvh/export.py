@@ -92,6 +92,38 @@ def _points(modis, viirs, modis_ghost, viirs_ghost) -> dict[int, dict]:
     return out
 
 
+def _cube_blocks(cube: pd.DataFrame) -> dict[int, dict]:
+    """Encode the non-empty (cell, week) entries of every year as columnar blocks."""
+    cell = cube["cy"].to_numpy(np.int64) * config.NX + cube["cx"].to_numpy(np.int64)
+    modis = cube["n_terra"].to_numpy(np.int64) + cube["n_aqua"].to_numpy(np.int64)
+    viirs = cube["n_viirs"].to_numpy(np.int64)
+    year = cube["year"].to_numpy(np.int64)
+    week = cube["week"].to_numpy(np.int64)
+    keep = np.flatnonzero(modis + viirs > 0)
+    over = keep[(modis[keep] > 65535) | (viirs[keep] > 65535)]
+    if len(over):
+        i = over[0]
+        raise ValueError(
+            f"cube count exceeds 65535 in year {year[i]} week {week[i]} cell {cell[i]}"
+        )
+    out = {}
+    for y in range(config.YEAR_START, config.YEAR_END + 1):
+        sel = keep[year[keep] == y]
+        if len(sel) == 0:
+            continue
+        sel = sel[np.lexsort((cell[sel], week[sel]))]
+        blob = b"".join(
+            [
+                cell[sel].astype("<u2").tobytes(),
+                week[sel].astype("u1").tobytes(),
+                modis[sel].astype("<u2").tobytes(),
+                viirs[sel].astype("<u2").tobytes(),
+            ]
+        )
+        out[y] = {"n": len(sel), "blob": blob}
+    return out
+
+
 def _write_json(path: Path, obj) -> None:
     text = json.dumps(obj, separators=(",", ":")) + "\n"
     path.write_bytes(text.encode("utf-8"))
@@ -103,6 +135,10 @@ def _clean(out: Path) -> None:
     points = out / "points"
     if points.is_dir():
         for p in [*points.glob("*.bin"), points / "index.json"]:
+            p.unlink(missing_ok=True)
+    cube = out / "cube"
+    if cube.is_dir():
+        for p in [*cube.glob("*.bin"), cube / "index.json"]:
             p.unlink(missing_ok=True)
 
 
@@ -122,6 +158,7 @@ def export_all(raw_root: Path | None, out: Path) -> None:
     pair_rows = pairing.pairing_stats(modis, viirs, modis_ghost, viirs_ghost)
     _stage("pairing")
     points = _points(modis, viirs, modis_ghost, viirs_ghost)
+    cube_blocks = _cube_blocks(cube)
     evts = events.events_per_year(modis, viirs)
     _stage("points+events")
 
@@ -159,6 +196,12 @@ def export_all(raw_root: Path | None, out: Path) -> None:
         (out / "points" / f"{y}.bin").write_bytes(p["blob"])
         index[str(y)] = {"n": p["n"], "week_start": p["week_start"]}
     _write_json(out / "points" / "index.json", index)
+    (out / "cube").mkdir(exist_ok=True)
+    for y, c in cube_blocks.items():
+        (out / "cube" / f"{y}.bin").write_bytes(c["blob"])
+    cube_index = {"nx": config.NX, "ny": config.NY}
+    cube_index["years"] = {str(y): {"n": c["n"]} for y, c in cube_blocks.items()}
+    _write_json(out / "cube" / "index.json", cube_index)
     validate_export(out)
     _stage("write+validate")
 
