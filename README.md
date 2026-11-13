@@ -33,12 +33,13 @@ Python and served as static files; there is no backend.
 - **Fire events**: space-time connected components of detections, counted per sensor and year.
 - **Sonification**: one year of the harmonized weekly series played as notes, with pitch and
   loudness following the weekly count.
-- **Area of interest**: on the globe, drag a rectangle (snapped to the 0.1 degree grid) and the
+- **Area of interest**: on the globe, press "Select area", then drag a rectangle (snapped to the 0.1 degree grid), and the
   calendar, yearly totals and sonification follow that area. The selection is kept in the URL
   hash. The events table, ghost shares and PYRO outlook stay regional.
 - **Unusual weeks and critical period**, for the region or the selected area. A week is unusual
   when its percentile is at or above 90% against the same week of the other years of 2001-2025
-  (and its value is above zero); a record is above all of them. The critical period is the
+  (and its value is above zero), and it needs at least 10 reference values (the same week in
+  other years) to be scored; a record is above all of them. The critical period is the
   shortest run of consecutive weeks that holds 80% of a typical year (the mean of each week over
   2001-2025).
 - **Uncertainty range** (`lo` to `hi`) on estimated weeks.
@@ -107,7 +108,8 @@ Ghost shares use a 2 km radius and a 180 minute window.
 - **Area rule.** For an observed week the area's value is its own VIIRS count. For an estimated
   week it is the area's MODIS count times that week's regional factor (regional harmonized value
   divided by regional MODIS count). If the region had no MODIS detections that week there is no
-  factor, and the area's value is 0 for that week.
+  factor, and the area's value is 0 for that week. The app marks such a week with "no regional MODIS
+  count this week".
 - **Uncertainty band.** The 10th to 90th percentile of observed over predicted
   (`(observed + 1) / (predicted + 1)`) in the held-out years, computed separately for the
   Terra + Aqua model and the Terra-only model, applied to the prediction of each estimated week.
