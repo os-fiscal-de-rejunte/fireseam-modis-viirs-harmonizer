@@ -8,6 +8,8 @@ import {
   forecastMonth,
   pooledShare,
   yearlyTotals,
+  decodeCube,
+  loadCube,
 } from "./data.js";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -155,5 +157,60 @@ describe("yearlyTotals", () => {
   it("flags years with null or gap weeks as partial", () => {
     expect(t[0].partial).toEqual({ modis: false, viirs: true, harmonized: false, raw: true });
     expect(t[1].partial).toEqual({ modis: true, viirs: true, harmonized: true, raw: true });
+  });
+});
+
+function cubeBuffer(entries) {
+  const n = entries.length;
+  const buf = new ArrayBuffer(7 * n);
+  const dv = new DataView(buf);
+  entries.forEach(([cell, week, modis, viirs], i) => {
+    dv.setUint16(2 * i, cell, true);
+    dv.setUint8(2 * n + i, week);
+    dv.setUint16(3 * n + 2 * i, modis, true);
+    dv.setUint16(5 * n + 2 * i, viirs, true);
+  });
+  return buf;
+}
+
+describe("decodeCube", () => {
+  it("decodes the four blocks", () => {
+    const c = decodeCube(cubeBuffer([[0, 1, 2, 10], [3149, 52, 65535, 0]]));
+    expect(c.n).toBe(2);
+    expect([...c.cell]).toEqual([0, 3149]);
+    expect([...c.week]).toEqual([1, 52]);
+    expect([...c.modis]).toEqual([2, 65535]);
+    expect([...c.viirs]).toEqual([10, 0]);
+  });
+  it("rejects a size that is not a multiple of 7", () => {
+    expect(() => decodeCube(new ArrayBuffer(6))).toThrow(/multiple of 7/);
+  });
+});
+
+describe("loadCube", () => {
+  const index = { nx: 45, ny: 70, years: { 2011: { n: 1 }, 2020: { n: 1 } } };
+  const ok = (body) => ({ ok: true, json: async () => body, arrayBuffer: async () => body });
+
+  it("loads every listed year", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url) =>
+      url.endsWith("index.json") ? ok(index) : ok(cubeBuffer([[7, 3, 1, 0]])),
+    ));
+    const cube = await loadCube("./a");
+    expect([cube.nx, cube.ny]).toEqual([45, 70]);
+    expect([...cube.years.keys()]).toEqual([2011, 2020]);
+    expect(cube.years.get(2020).cell[0]).toBe(7);
+  });
+
+  it("names the failing file and retries on the next call", async () => {
+    const fetchMock = vi.fn(async (url) =>
+      url.endsWith("index.json") ? ok(index)
+        : url.endsWith("2020.bin") ? { ok: false, status: 404 }
+        : ok(cubeBuffer([])),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(loadCube("./b")).rejects.toThrow(/cube\/2020\.bin/);
+    const calls = fetchMock.mock.calls.length;
+    await expect(loadCube("./b")).rejects.toThrow();
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(calls);
   });
 });

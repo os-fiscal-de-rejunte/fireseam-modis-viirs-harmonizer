@@ -94,6 +94,42 @@ export function loadYear(year, base = "./data") {
   return yearCache.get(year);
 }
 
+export function decodeCube(buf) {
+  if (buf.byteLength % 7 !== 0) {
+    throw new Error(`Cube file has ${buf.byteLength} bytes, not a multiple of 7`);
+  }
+  const n = buf.byteLength / 7;
+  const u16 = (offset) => new Uint16Array(buf.slice(offset, offset + 2 * n));
+  return {
+    n,
+    cell: u16(0),
+    week: new Uint8Array(buf.slice(2 * n, 3 * n)),
+    modis: u16(3 * n),
+    viirs: u16(5 * n),
+  };
+}
+
+const cubeCache = new Map();
+
+async function fetchCubeYear(year, base) {
+  const res = await fetch(`${base}/cube/${year}.bin`);
+  if (!res.ok) throw new Error(`Could not load cube/${year}.bin (HTTP ${res.status})`);
+  return decodeCube(await res.arrayBuffer());
+}
+
+export function loadCube(base = "./data") {
+  if (!cubeCache.has(base)) {
+    const p = fetchJson(`${base}/cube/index.json`, "cube/index.json").then(async (index) => {
+      const years = Object.keys(index.years).map(Number).sort((a, b) => a - b);
+      const decoded = await Promise.all(years.map((y) => fetchCubeYear(y, base)));
+      return { nx: index.nx, ny: index.ny, years: new Map(years.map((y, i) => [y, decoded[i]])) };
+    });
+    p.catch(() => cubeCache.delete(base));
+    cubeCache.set(base, p);
+  }
+  return cubeCache.get(base);
+}
+
 // Share of `key` pooled over rows, weighted by `weightKey` (e.g. unmatched share by detections).
 export function pooledShare(rows, key, weightKey) {
   let num = 0;
