@@ -119,9 +119,14 @@ after the cell-level design failed on the same folds.
 
 ## 6. Open items that are not code
 
-- The pitch states planned end dates for Terra and Aqua MODIS data collection and that INPE
-  uses Aqua as its reference satellite. Neither claim has a confirmed source in the repository.
-  A team member must confirm both before the pitch.
+- Both pitch claims are now confirmed by official sources, read on 13 November 2026. NASA
+  Science, "Terra: The End of An Era", 29 December 2025, editor's note: end of science
+  activities projected for Terra in February 2027 and Aqua in September 2027
+  (https://science.nasa.gov/science-research/earth-science/terra-the-end-of-an-era/). INPE,
+  Programa Queimadas, "Perguntas Frequentes", item 7: Aqua MODIS is the reference satellite
+  since July 2002 and S-NPP VIIRS will replace it when Aqua stops
+  (https://data.inpe.br/queimadas/faq/). Correction: Terra's projected end of science is
+  February 2027, not January as the original handoff said.
 - The handoff's commit scope list lacks scopes for some modules. The repository uses
   `pipeline`, `model`, `web`, `data`, `infra` and `docs`; new work in this spec uses the same.
 

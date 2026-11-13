@@ -13,7 +13,8 @@
 - MODIS (about 1 km, since 2000) and VIIRS (375 m, since 2012) detect fire differently.
 - Stacking the records makes fire look like it jumped in 2012; raw VIIRS to MODIS yearly ratio
   is 3.4 to 4.4 across 2012-2025 (`metrics.json`, `by_year.ratio_raw`).
-- NASA plans to end Terra and Aqua MODIS science data collection.
+- NASA projects the end of science activities for Terra in February 2027 and for Aqua in September 2027 (NASA Science, editor's note in "Terra: The End of An Era").
+- INPE's Programa Queimadas uses Aqua MODIS as its reference satellite since July 2002 and states that S-NPP VIIRS will replace it when Aqua stops, with the two series to be made compatible (INPE FAQ, item 7).
 - **Capture:** the "Yearly totals" view in the bottom strip, with raw MODIS and VIIRS and the step at 2012 visible.
 
 ## 3. The solution
@@ -57,3 +58,12 @@
 - It projects detection probability by season, not ignition.
 - Limits: a bounding box, not the biome polygon; pre-2012 values are estimates; S-NPP only.
 - **Capture:** Outlook tab on the globe for a fire-season month.
+
+## Sources
+
+Read on 13 November 2026.
+
+- NASA Science, "Terra: The End of An Era", 29 December 2025, editor's note: end of science activities projected for Terra in February 2027 and Aqua in September 2027. https://science.nasa.gov/science-research/earth-science/terra-the-end-of-an-era/
+- NASA Earthdata, data alert "Transition from MODIS to VIIRS", 2 May 2025: Terra and Aqua begin shutting down operations in late 2026 or early 2027 and MODIS data will no longer be collected. https://www.earthdata.nasa.gov/data/alerts-outages/transition-from-modis-viirs
+- NASA LAADS DAAC, "MODIS to VIIRS Transition": decommissioning plan and continuity products. https://ladsweb.modaps.eosdis.nasa.gov/learn/modis-to-viirs-transition
+- INPE, Programa Queimadas, "Perguntas Frequentes", item 7 ("O que é o satélite de referência"): Aqua MODIS is the reference satellite since July 2002; S-NPP VIIRS will replace it when Aqua stops. https://data.inpe.br/queimadas/faq/

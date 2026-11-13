@@ -18,10 +18,11 @@
 MODIS (about 1 km pixels, active since 2000) and VIIRS (375 m pixels, since 2012) do not see
 fire the same way. In our Pantanal bounding box VIIRS reports several times more detections per
 week than MODIS, so simply stacking the two records creates an artificial jump in 2012. NASA
-plans to end Terra and Aqua MODIS science data collection, which would leave VIIRS as the only
-continuing record. This project turns the MODIS record into VIIRS-equivalent weekly counts for
-the Pantanal region, so that 2001-2026 reads as one calendar. Everything is precomputed in
-Python and served as static files; there is no backend.
+projects the end of science activities for Terra in February 2027 and for Aqua in September
+2027, which would leave VIIRS as the only continuing record. This project turns the MODIS
+record into VIIRS-equivalent weekly counts for the Pantanal region, so that 2001-2026 reads as
+one calendar. Everything is precomputed in Python and served as static files; there is no
+backend.
 
 ## What you get
 
@@ -104,15 +105,18 @@ Ghost shares use a 2 km radius and a 180 minute window.
 - **2026** is partial and partly near-real-time. It is excluded from training and scoring.
 - **Cube.** `cube/<year>.bin` holds, for each year, the non-empty (cell, week) entries with the
   Terra + Aqua count and the S-NPP count. The browser reads it to rebuild a calendar for any
-  rectangle of cells, with no backend.
+  rectangle of cells, with no backend. The published cube is 26 year files, about 1.5 MB in
+  total.
 - **Area rule.** For an observed week the area's value is its own VIIRS count. For an estimated
   week it is the area's MODIS count times that week's regional factor (regional harmonized value
   divided by regional MODIS count). If the region had no MODIS detections that week there is no
   factor, and the area's value is 0 for that week. The app marks such a week with "no regional MODIS
-  count this week".
+  count this week". The published calendar has 1 such week.
 - **Uncertainty band.** The 10th to 90th percentile of observed over predicted
   (`(observed + 1) / (predicted + 1)`) in the held-out years, computed separately for the
   Terra + Aqua model and the Terra-only model, applied to the prediction of each estimated week.
+  Measured quantiles (`metrics.json`, `uncertainty`): 0.7055 and 1.3467 for the Terra + Aqua
+  model, 0.5826 and 1.5612 for the Terra-only model.
 
 ## Limitations
 
@@ -206,6 +210,13 @@ docs/            data audit and pitch material
 
 We acknowledge the use of data and imagery from LANCE FIRMS operated by NASA's Earth Science
 Data and Information System (ESDIS) with funding provided by NASA Headquarters.
+
+Sources for the MODIS end dates and the INPE reference satellite (read on 13 November 2026):
+
+- NASA Science, "Terra: The End of An Era", 29 December 2025, editor's note: end of science activities projected for Terra in February 2027 and Aqua in September 2027. https://science.nasa.gov/science-research/earth-science/terra-the-end-of-an-era/
+- NASA Earthdata, data alert "Transition from MODIS to VIIRS", 2 May 2025: Terra and Aqua begin shutting down operations in late 2026 or early 2027 and MODIS data will no longer be collected. https://www.earthdata.nasa.gov/data/alerts-outages/transition-from-modis-viirs
+- NASA LAADS DAAC, "MODIS to VIIRS Transition": decommissioning plan and continuity products. https://ladsweb.modaps.eosdis.nasa.gov/learn/modis-to-viirs-transition
+- INPE, Programa Queimadas, "Perguntas Frequentes", item 7 ("O que é o satélite de referência"): Aqua MODIS is the reference satellite since July 2002; S-NPP VIIRS will replace it when Aqua stops. https://data.inpe.br/queimadas/faq/
 
 ## Use of AI
 
