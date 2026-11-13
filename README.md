@@ -33,6 +33,16 @@ Python and served as static files; there is no backend.
 - **Fire events**: space-time connected components of detections, counted per sensor and year.
 - **Sonification**: one year of the harmonized weekly series played as notes, with pitch and
   loudness following the weekly count.
+- **Area of interest**: on the globe, drag a rectangle (snapped to the 0.1 degree grid) and the
+  calendar, yearly totals and sonification follow that area. The selection is kept in the URL
+  hash. The events table, ghost shares and PYRO outlook stay regional.
+- **Unusual weeks and critical period**, for the region or the selected area. A week is unusual
+  when its percentile is at or above 90% against the same week of the other years of 2001-2025
+  (and its value is above zero); a record is above all of them. The critical period is the
+  shortest run of consecutive weeks that holds 80% of a typical year (the mean of each week over
+  2001-2025).
+- **Uncertainty range** (`lo` to `hi`) on estimated weeks.
+- **CSV download** of the active calendar, with the range, percentile and unusual flag.
 - **Forecast outlook** from the companion model PYRO
   ([`os-fiscal-de-rejunte/exp-pyro-predictive`](https://github.com/os-fiscal-de-rejunte/exp-pyro-predictive)).
   Its event is "at least one MOD14A2 fire pixel in the 8-day composite, given a fully valid
@@ -91,6 +101,16 @@ Ghost shares use a 2 km radius and a 180 minute window.
   A model is accepted only if its mean weekly error is lower than the baseline's and it wins at
   least 8 of the 14 years.
 - **2026** is partial and partly near-real-time. It is excluded from training and scoring.
+- **Cube.** `cube/<year>.bin` holds, for each year, the non-empty (cell, week) entries with the
+  Terra + Aqua count and the S-NPP count. The browser reads it to rebuild a calendar for any
+  rectangle of cells, with no backend.
+- **Area rule.** For an observed week the area's value is its own VIIRS count. For an estimated
+  week it is the area's MODIS count times that week's regional factor (regional harmonized value
+  divided by regional MODIS count). If the region had no MODIS detections that week there is no
+  factor, and the area's value is 0 for that week.
+- **Uncertainty band.** The 10th to 90th percentile of observed over predicted
+  (`(observed + 1) / (predicted + 1)`) in the held-out years, computed separately for the
+  Terra + Aqua model and the Terra-only model, applied to the prediction of each estimated week.
 
 ## Limitations
 
@@ -102,6 +122,13 @@ Ghost shares use a 2 km radius and a 180 minute window.
 - The PYRO outlook is a seasonal projection of detection probability, not of ignition.
 - The model does not win every year (9 of 14); in 2012, 2019, 2021, 2022 and 2025 the baseline
   has the lower error, and the validation score is indicative (see Results).
+- The conversion factor of a week is regional: it is assumed to be the same everywhere in the
+  region. An area's estimated weeks inherit that assumption.
+- The uncertainty range covers the regional conversion only. It does not include the extra noise
+  of counts in a small area.
+- An area is a rectangle aligned to the 0.1 degree grid, not a free-form polygon.
+- Areas whose mean is below 100 detections a year (2001-2025) get no unusual-week analysis or
+  critical period; the app says there are not enough detections.
 
 ## Quickstart
 
@@ -122,7 +149,7 @@ FIRMS, into `modis/<year>.csv` and `viirs_snpp/<year>.csv` under the folder give
 
 ```bash
 python -m mvh.audit               # writes docs/data-audit.md (needs FIRMS_OUT_DIR in the environment, or --raw)
-python -m mvh.export              # writes calendar, points, metrics to web/public/data/
+python -m mvh.export              # writes calendar, points, cube, metrics to web/public/data/
 python -m mvh.forecast --pyro <PYRO artifacts dir>   # writes web/public/data/forecast.json
 ```
 
@@ -159,7 +186,10 @@ src/mvh/
 tests/           unit tests on small synthetic frames
 data/sample/     tiny versioned samples (raw, export, PYRO)
 web/             Vite + deck.gl + Tone.js demo
-web/public/data/ exported static files (versioned)
+  src/aoi.js     area calendar from the cube and the regional factors
+  src/stats.js   unusual weeks, critical period, year to date
+  src/csv.js     CSV of the active calendar
+web/public/data/ exported static files (versioned), including cube/ (cell x week counts)
 docs/            data audit and pitch material
 ```
 

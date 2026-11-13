@@ -21,6 +21,8 @@
 - **Headline:** MODIS converted to VIIRS-equivalent weekly counts
 - 1352 weeks: 753 observed, 579 estimated, 20 gaps (`calendar.json`).
 - Missing coverage is a gap, never a zero; two 2024 S-NPP outages are treated as estimated.
+- Select an area on the globe: its calendar, unusual weeks and critical period follow, and the
+  CSV downloads. It assumes one conversion factor for the whole region.
 - **Capture:** "Calendar" view (harmonized weekly heatmap) with observed, estimated and gap weeks distinguished.
 
 ## 4. Method and validation
