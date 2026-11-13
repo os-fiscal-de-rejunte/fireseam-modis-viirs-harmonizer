@@ -48,6 +48,16 @@
           <label class="chip viirs"><input type="checkbox" id="t-viirs" checked /><i></i>VIIRS</label>
           <label class="chip ghost"><input type="checkbox" id="t-ghost" /><i></i>Ghosts only</label>
         </div>
+        <div class="row">
+          <button type="button" class="btn" id="aoi-select" aria-pressed="false">Select area</button>
+          <button type="button" class="btn" id="aoi-clear" hidden>Whole region</button>
+          <button type="button" class="btn" id="csv">Download CSV</button>
+        </div>
+        <p class="hint" id="aoi-label">Whole region</p>
+        <p class="hint" id="aoi-assume" hidden>
+          Area values use each week's regional MODIS to VIIRS conversion.
+        </p>
+        <p class="hint warn" id="aoi-note" hidden></p>
         <label class="switch"
           ><input type="checkbox" id="t-cum" /><span>Cumulative since week 1</span></label
         >
@@ -107,6 +117,7 @@
           <div><b id="r-viirs" class="c-viirs">-</b><small>VIIRS</small></div>
           <div><b id="r-harm">-</b><small>harmonized</small></div>
         </div>
+        <p class="extra" id="r-extra"></p>
         <p class="empty" id="r-empty" hidden></p>
       </div>
 
@@ -124,6 +135,7 @@
             <i class="sw est"></i>Estimated: MODIS converted to VIIRS-equivalent
             <i class="sw gap"></i>No data
           </p>
+          <p class="view-calendar" id="critical"></p>
           <p class="view-yearly">
             Raw counts jump when VIIRS starts in 2012. The harmonized series puts 2001-2026 on one
             scale.

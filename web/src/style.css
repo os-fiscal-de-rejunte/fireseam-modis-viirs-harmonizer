@@ -837,3 +837,29 @@ input[type="range"]::-moz-range-thumb {
     height: 170px;
   }
 }
+
+/* area of interest */
+.btn[aria-pressed="true"] {
+  background: rgba(255, 179, 71, 0.2);
+  border-color: rgba(255, 179, 71, 0.55);
+  color: #ffd9a8;
+}
+
+.row {
+  flex-wrap: wrap;
+}
+
+.extra {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.extra:empty {
+  display: none;
+}
+
+#critical {
+  color: #ffb347;
+}

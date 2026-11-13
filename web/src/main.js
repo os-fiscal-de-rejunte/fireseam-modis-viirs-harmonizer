@@ -1,5 +1,16 @@
 import "./style.css";
-import { loadData, loadForecast, loadYear, pooledShare, weekSlice, yearlyTotals } from "./data.js";
+import {
+  loadCube,
+  loadData,
+  loadForecast,
+  loadYear,
+  pooledShare,
+  weekSlice,
+  yearlyTotals,
+} from "./data.js";
+import { aoiBounds, areaCalendar, cellsFromLonLat, formatAoiHash, parseAoiHash } from "./aoi.js";
+import { analyze, yearToDate } from "./stats.js";
+import { csvFileName, downloadCsv, toCsv } from "./csv.js";
 import { createGlobe, FORECAST_GRADIENT, forecastColor } from "./globe.js";
 import { createHeatmap } from "./heatmap.js";
 import { createYearly } from "./yearly.js";
@@ -10,6 +21,8 @@ const app = $("app");
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const nf = new Intl.NumberFormat("en-US");
 const fmt = (v) => (v == null ? "-" : nf.format(Math.round(v)));
+const NX = 45;
+const NY = 70;
 
 const state = {
   year: 2020,
@@ -20,6 +33,8 @@ const state = {
   month: 1,
   show: { modis: true, viirs: true, ghostOnly: false },
   cumulative: false,
+  aoi: null,
+  selecting: false,
 };
 
 let data;
@@ -29,6 +44,29 @@ let heat;
 let yearly;
 let years = [];
 let timer = null;
+// The calendar every view reads: the regional one, or the selected area's.
+let active = null;
+let aoiSeq = 0;
+
+const scopeSuffix = () => (state.aoi ? " (whole region)" : "");
+
+function monthDay(year, week, end) {
+  const d = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const last = end && week >= 52 ? new Date(Date.UTC(year, 11, 31)) : new Date(d.getTime() + 6 * 864e5);
+  return (end ? last : d).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function rangeText(cell) {
+  if (cell?.status !== "estimated" || cell.lo == null || cell.hi == null) return null;
+  return `range ${fmt(cell.lo)}-${fmt(cell.hi)} (regional conversion only)`;
+}
+
+function unusualText(stat) {
+  if (!stat) return null;
+  if (stat.record) return "record for this week";
+  if (stat.unusual) return `unusual: above ${Math.round(stat.percentile * 100)}% of other years`;
+  return null;
+}
 
 function weekDates(year, week) {
   const start = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
@@ -94,6 +132,18 @@ function updateReadout() {
   empty.hidden = !!data.index[String(state.year)];
   empty.textContent = `No point file for ${state.year}`;
   $("ghost-note").hidden = state.year < 2022;
+  const parts = [];
+  if (cell) {
+    parts.push(rangeText(cell), unusualText(active.analysis.stats.get(`${state.year}:${state.week}`)));
+    const ytd = yearToDate(active.calendar, state.year, state.week);
+    if (ytd.percentile !== null) {
+      parts.push(
+        `${state.year} to date: ${fmt(ytd.value)}, above ${Math.round(ytd.percentile * 100)}% of other years`,
+      );
+    }
+    if (cell.factor === false) parts.push("no regional MODIS count this week");
+  }
+  $("r-extra").textContent = parts.filter(Boolean).join(" · ");
   return month;
 }
 
@@ -109,7 +159,7 @@ function updateHeadline() {
   const share = pooledShare(rows, "viirs_unmatched", "viirs_n");
   $("h-unmatched").textContent = share == null ? "-" : `${(share * 100).toFixed(1)}%`;
   $("h-unmatched-label").textContent =
-    `of S-NPP detections had no Aqua match in the same overpass, ${y0}-${y1}`;
+    `of S-NPP detections had no Aqua match in the same overpass, ${y0}-${y1}${scopeSuffix()}`;
   $("baseline-note").hidden = m.method !== "baseline";
   updateEvents();
 }
@@ -118,7 +168,7 @@ function updateEvents() {
   const ev = data.metrics.events.find((e) => e.year === state.year);
   $("h-ev-modis").textContent = ev ? fmt(ev.modis) : "-";
   $("h-ev-viirs").textContent = ev ? fmt(ev.viirs) : "-";
-  $("h-ev-label").textContent = `Fire events in ${state.year}, MODIS vs VIIRS`;
+  $("h-ev-label").textContent = `Fire events in ${state.year}, MODIS vs VIIRS${scopeSuffix()}`;
 }
 
 function syncControls() {
@@ -180,7 +230,7 @@ async function setHearing(on) {
   const note = $("audio-note");
   note.hidden = true;
   try {
-    await playYear(data.calendar, state.year, {
+    await playYear(active.calendar, state.year, {
       onWeek: (week) => state.hearing && select(state.year, week, { fromMusic: true }),
     });
   } catch (err) {
@@ -211,7 +261,7 @@ function hideTip() {
   $("tip").hidden = true;
 }
 
-function heatTip(pos, ev, cell) {
+function heatTip(pos, ev, cell, stat) {
   if (!pos || !cell) return hideTip();
   const { label } = weekDates(pos.year, pos.week);
   const status =
@@ -224,6 +274,10 @@ function heatTip(pos, ev, cell) {
     `<b>${label}</b>
      <span class="mut">MODIS</span> ${fmt(cell.modis)} &nbsp; <span class="mut">VIIRS</span> ${fmt(cell.viirs)}<br/>
      <span class="mut">Harmonized</span> ${fmt(cell.harmonized)}<br/>
+     ${[rangeText(cell), unusualText(stat)]
+       .filter(Boolean)
+       .map((t) => `<span class="mut">${t}</span><br/>`)
+       .join("")}
      <span class="mut">${status}${cell.nrt ? ", provisional (NRT)" : ""}</span>`,
     ev,
   );
@@ -236,6 +290,7 @@ function setMode(mode) {
     setHearing(false);
     state.month = weekDates(state.year, state.week).month;
     renderMonths();
+    setSelecting(false);
   }
   state.mode = mode;
   app.dataset.mode = mode;
@@ -309,7 +364,87 @@ function cellTip(info) {
   $("tip").style.borderColor = `rgb(${c.join(",")})`;
 }
 
+function setSelecting(on) {
+  state.selecting = on;
+  globe.setSelecting(on);
+  $("aoi-select").setAttribute("aria-pressed", String(on));
+}
+
+function cellsOf(a, b) {
+  const { bbox, cell_deg: cellDeg } = data.calendar.meta;
+  return cellsFromLonLat(a, b, bbox, cellDeg, NX, NY);
+}
+
+function areaBounds(aoi) {
+  const { bbox, cell_deg: cellDeg } = data.calendar.meta;
+  return aoiBounds(aoi, bbox, cellDeg);
+}
+
+function criticalText(analysis) {
+  const c = analysis.critical;
+  if (!analysis.sufficient || !c) return "Not enough detections in this area";
+  return (
+    `Critical period: weeks ${c.start}-${c.end} (${monthDay(2001, c.start, false)} - ` +
+    `${monthDay(2001, c.end, true)}), ${Math.round(c.share * 100)}% of a typical year`
+  );
+}
+
+function showActive(aoi, calendar) {
+  state.aoi = aoi;
+  active = { calendar, analysis: analyze(calendar) };
+  heat.setCalendar(active.calendar, active.analysis);
+  yearly.setTotals(yearlyTotals(active.calendar));
+  updateReadout();
+  updateHeadline();
+  const b = aoi && areaBounds(aoi);
+  $("aoi-label").textContent = b
+    ? `Area: ${b[0].toFixed(1)} to ${b[2].toFixed(1)}, ${b[1].toFixed(1)} to ${b[3].toFixed(1)}`
+    : "Whole region";
+  $("aoi-clear").hidden = !aoi;
+  $("aoi-assume").hidden = !aoi;
+  $("critical").textContent = criticalText(active.analysis);
+  globe.setAoi(b);
+  if (aoi) {
+    if (location.hash !== "#outlook") history.replaceState(null, "", formatAoiHash(aoi));
+  } else if (location.hash.startsWith("#aoi")) {
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+}
+
+async function setAoi(aoi) {
+  const seq = ++aoiSeq;
+  setPlaying(false);
+  setHearing(false);
+  const note = $("aoi-note");
+  if (!aoi) {
+    note.hidden = true;
+    showActive(null, data.calendar);
+    return;
+  }
+  let cube;
+  try {
+    cube = await loadCube();
+  } catch (err) {
+    if (seq !== aoiSeq) return;
+    showActive(null, data.calendar);
+    note.textContent = `Could not load the area data: ${err.message}`;
+    note.hidden = false;
+    return;
+  }
+  if (seq !== aoiSeq) return;
+  note.hidden = true;
+  showActive(aoi, areaCalendar(cube, data.calendar, aoi));
+}
+
 function wire() {
+  $("aoi-select").addEventListener("click", () => {
+    if (state.mode === "past") setSelecting(!state.selecting);
+  });
+  $("aoi-clear").addEventListener("click", () => setAoi(null));
+  $("csv").addEventListener("click", () => {
+    const bounds = state.aoi ? areaBounds(state.aoi) : data.calendar.meta.bbox;
+    downloadCsv(csvFileName(bounds), toCsv(active.calendar, active.analysis.stats));
+  });
   const yearInput = $("year");
   yearInput.max = String(years.length - 1);
   yearInput.addEventListener("input", () => {
@@ -386,6 +521,11 @@ async function start() {
         cellTip(info);
       }
     },
+    onAreaDrag: (a, b) => globe.setAoi(areaBounds(cellsOf(a, b))),
+    onAreaSelect: (a, b) => {
+      setSelecting(false);
+      setAoi(cellsOf(a, b));
+    },
   });
   heat = createHeatmap($("cal"), data.calendar, {
     onSelect: (y, w) => {
@@ -394,7 +534,9 @@ async function start() {
     },
     onHover: heatTip,
   });
-  yearly = createYearly($("yr"), yearlyTotals(data.calendar), {
+  active = { calendar: data.calendar, analysis: analyze(data.calendar) };
+  heat.setCalendar(active.calendar, active.analysis);
+  yearly = createYearly($("yr"), yearlyTotals(active.calendar), {
     onSelect: (y) => {
       if (state.hearing) setHearing(false);
       select(y, state.week);
@@ -403,7 +545,10 @@ async function start() {
   wire();
   updateHeadline();
   if (forecast) setupForecast();
-  const inYear = data.calendar.weeks.filter((w) => w.year === state.year && w.harmonized != null);
+  $("critical").textContent = criticalText(active.analysis);
+  const startAoi = parseAoiHash(location.hash, NX, NY);
+  if (startAoi) await setAoi(startAoi);
+  const inYear = active.calendar.weeks.filter((w) => w.year === state.year && w.harmonized != null);
   const peak = inYear.reduce((a, w) => (a && a.harmonized >= w.harmonized ? a : w), null);
   select(state.year, peak ? peak.week : 26);
   if (forecast && location.hash === "#outlook") setMode("outlook");
