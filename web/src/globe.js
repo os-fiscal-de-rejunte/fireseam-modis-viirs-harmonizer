@@ -137,7 +137,7 @@ export function densityScale(count) {
   return Math.min(1, Math.max(0.3, Math.sqrt(4000 / Math.max(1, count))));
 }
 
-export function createGlobe(container, { onHover, onClick } = {}) {
+export function createGlobe(container, { onHover, onClick, onAreaDrag, onAreaSelect } = {}) {
   const state = {
     mode: "past",
     view: { ...PANTANAL, pitch: 0, bearing: 0 },
@@ -150,7 +150,10 @@ export function createGlobe(container, { onHover, onClick } = {}) {
     selectedId: null,
     spin: false,
     spinFrom: 0,
+    aoi: null,
+    selecting: false,
   };
+  let drag = null;
   const cache = { points: null, attrs: null, colors: null, colorKey: "" };
 
   const deck = new Deck({
@@ -165,7 +168,26 @@ export function createGlobe(container, { onHover, onClick } = {}) {
     onInteractionStateChange: (s) => {
       if (s.isDragging || s.isZooming || s.isPanning) state.spin = false;
     },
-    getCursor: ({ isHovering }) => (isHovering ? "pointer" : "grab"),
+    getCursor: ({ isHovering }) =>
+      state.selecting ? "crosshair" : isHovering ? "pointer" : "grab",
+    onDragStart: (info) => {
+      if (!state.selecting || state.mode !== "past") return;
+      const a = dragPoint(info);
+      drag = { a, b: a };
+    },
+    onDrag: (info) => {
+      if (!drag || !drag.a) return;
+      const b = dragPoint(info);
+      if (!b) return;
+      drag.b = b;
+      if (onAreaDrag) onAreaDrag(drag.a, b);
+    },
+    onDragEnd: (info) => {
+      const d = drag;
+      drag = null;
+      if (!d || !d.a || !dragPoint(info)) return;
+      if (onAreaSelect) onAreaSelect(d.a, d.b);
+    },
     onHover: (info) => onHover && onHover(info),
     onClick: (info) => onClick && onClick(info),
     layers: [],
@@ -255,6 +277,19 @@ export function createGlobe(container, { onHover, onClick } = {}) {
           }),
         );
       }
+    }
+    if (state.aoi) {
+      const [x0, y0, x1, y1] = state.aoi;
+      layers.push(
+        new PathLayer({
+          id: "aoi",
+          data: [densify([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]])],
+          getPath: (d) => d,
+          getColor: [255, 255, 255, 230],
+          widthMinPixels: 2,
+          parameters: FLAT,
+        }),
+      );
     }
     return layers;
   }
@@ -349,6 +384,7 @@ export function createGlobe(container, { onHover, onClick } = {}) {
       if (mode === state.mode) return;
       state.mode = mode;
       if (mode === "outlook") {
+        api.setSelecting(false);
         fly(EARTH, 1800);
         state.spin = true;
         state.spinFrom = performance.now() + 2000;
@@ -358,6 +394,15 @@ export function createGlobe(container, { onHover, onClick } = {}) {
         fly(PANTANAL, 1800);
       }
       render();
+    },
+    setAoi(bounds) {
+      state.aoi = bounds;
+      render();
+    },
+    setSelecting(on) {
+      state.selecting = on;
+      if (!on) drag = null;
+      deck.setProps({ controller: on ? false : { inertia: true } });
     },
     setPoints(points, range, show) {
       state.range = range;
@@ -406,6 +451,12 @@ export function createGlobe(container, { onHover, onClick } = {}) {
   };
   render();
   return api;
+}
+
+// [lon, lat] of a drag event, or null when the pointer is off the globe.
+function dragPoint(info) {
+  const c = info.coordinate || (info.viewport && info.viewport.unproject([info.x, info.y]));
+  return c && Number.isFinite(c[0]) && Number.isFinite(c[1]) ? [c[0], c[1]] : null;
 }
 
 function centroid(ring) {
