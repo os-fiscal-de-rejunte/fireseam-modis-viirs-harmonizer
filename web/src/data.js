@@ -51,7 +51,11 @@ async function fetchJson(url, name) {
     throw new Error(`Could not load ${name}: ${err.message}`);
   }
   if (!res.ok) throw new Error(`Could not load ${name} (HTTP ${res.status})`);
-  return res.json();
+  try {
+    return await res.json();
+  } catch (err) {
+    throw new Error(`Could not load ${name}: ${err.message}`);
+  }
 }
 
 export async function loadData(base = "./data") {
@@ -111,7 +115,7 @@ export function decodeCube(buf) {
 
 const cubeCache = new Map();
 
-async function fetchCubeYear(year, base) {
+async function fetchCubeYear(year, base, expected) {
   const name = `cube/${year}.bin`;
   let res;
   try {
@@ -120,18 +124,23 @@ async function fetchCubeYear(year, base) {
     throw new Error(`Could not load ${name}: ${err.message}`);
   }
   if (!res.ok) throw new Error(`Could not load ${name} (HTTP ${res.status})`);
+  let decoded;
   try {
-    return decodeCube(await res.arrayBuffer());
+    decoded = decodeCube(await res.arrayBuffer());
   } catch (err) {
     throw new Error(`Could not load ${name}: ${err.message}`);
   }
+  if (decoded.n !== expected) {
+    throw new Error(`Could not load ${name}: expected ${expected} entries, got ${decoded.n}`);
+  }
+  return decoded;
 }
 
 export function loadCube(base = "./data") {
   if (!cubeCache.has(base)) {
     const p = fetchJson(`${base}/cube/index.json`, "cube/index.json").then(async (index) => {
       const years = Object.keys(index.years).map(Number).sort((a, b) => a - b);
-      const decoded = await Promise.all(years.map((y) => fetchCubeYear(y, base)));
+      const decoded = await Promise.all(years.map((y) => fetchCubeYear(y, base, index.years[y].n)));
       return { nx: index.nx, ny: index.ny, years: new Map(years.map((y, i) => [y, decoded[i]])) };
     });
     p.catch(() => cubeCache.delete(base));

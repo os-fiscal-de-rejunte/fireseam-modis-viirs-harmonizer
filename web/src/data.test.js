@@ -205,7 +205,7 @@ describe("loadCube", () => {
     const fetchMock = vi.fn(async (url) =>
       url.endsWith("index.json") ? ok(index)
         : url.endsWith("2020.bin") ? { ok: false, status: 404 }
-        : ok(cubeBuffer([])),
+        : ok(cubeBuffer([[7, 3, 1, 0]])),
     );
     vi.stubGlobal("fetch", fetchMock);
     await expect(loadCube("./b")).rejects.toThrow(/cube\/2020\.bin/);
@@ -218,7 +218,7 @@ describe("loadCube", () => {
     vi.stubGlobal("fetch", vi.fn(async (url) => {
       if (url.endsWith("index.json")) return ok(index);
       if (url.endsWith("2020.bin")) throw new TypeError("Failed to fetch");
-      return ok(cubeBuffer([]));
+      return ok(cubeBuffer([[7, 3, 1, 0]]));
     }));
     await expect(loadCube("./c")).rejects.toThrow(/cube\/2020\.bin/);
   });
@@ -227,8 +227,28 @@ describe("loadCube", () => {
     vi.stubGlobal("fetch", vi.fn(async (url) => {
       if (url.endsWith("index.json")) return ok(index);
       if (url.endsWith("2020.bin")) return ok(new ArrayBuffer(6));
-      return ok(cubeBuffer([]));
+      return ok(cubeBuffer([[7, 3, 1, 0]]));
     }));
     await expect(loadCube("./d")).rejects.toThrow(/cube\/2020\.bin/);
+  });
+
+  it("names the index file when its body is not JSON", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => {
+        throw new SyntaxError("Unexpected token '<'");
+      },
+    })));
+    await expect(loadCube("./e")).rejects.toThrow(/cube\/index\.json/);
+  });
+
+  it("rejects a year whose entry count differs from the index", async () => {
+    const short = { nx: 45, ny: 70, years: { 2020: { n: 2 } } };
+    vi.stubGlobal("fetch", vi.fn(async (url) =>
+      url.endsWith("index.json") ? ok(short) : ok(cubeBuffer([[7, 3, 1, 0]])),
+    ));
+    const err = await loadCube("./f").catch((e) => e);
+    expect(err.message).toMatch(/cube\/2020\.bin/);
+    expect(err.message).toMatch(/expected 2 entries, got 1/);
   });
 });

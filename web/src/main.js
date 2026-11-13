@@ -68,6 +68,11 @@ function unusualText(stat) {
   return null;
 }
 
+function percentileText(stat) {
+  if (!stat || stat.percentile === null || stat.percentile === undefined) return null;
+  return `above ${Math.round(stat.percentile * 100)}% of other years`;
+}
+
 function weekDates(year, week) {
   const start = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
   const end = week >= 52 ? new Date(Date.UTC(year, 11, 31)) : new Date(start.getTime() + 6 * 864e5);
@@ -274,7 +279,7 @@ function heatTip(pos, ev, cell, stat) {
     `<b>${label}</b>
      <span class="mut">MODIS</span> ${fmt(cell.modis)} &nbsp; <span class="mut">VIIRS</span> ${fmt(cell.viirs)}<br/>
      <span class="mut">Harmonized</span> ${fmt(cell.harmonized)}<br/>
-     ${[rangeText(cell), unusualText(stat)]
+     ${[rangeText(cell), unusualText(stat) ?? percentileText(stat)]
        .filter(Boolean)
        .map((t) => `<span class="mut">${t}</span><br/>`)
        .join("")}
@@ -429,6 +434,7 @@ async function setAoi(aoi) {
     return;
   }
   let cube;
+  $("aoi-label").textContent = "Loading area data...";
   try {
     cube = await loadCube();
   } catch (err) {

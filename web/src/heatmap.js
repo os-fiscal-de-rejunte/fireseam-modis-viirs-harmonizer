@@ -90,12 +90,17 @@ export function createHeatmap(canvas, calendar, { onSelect, onHover }) {
       ctx.lineTo(x + w, y);
       ctx.lineTo(x + w, y + leg);
       ctx.closePath();
+      ctx.strokeStyle = "rgba(8,10,16,0.85)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
       ctx.fill();
     }
     if (st.record) {
-      ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(8,10,16,0.85)";
       ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      ctx.strokeStyle = "#ffffff";
+      ctx.strokeRect(x + 1.5, y + 1.5, Math.max(0, w - 3), Math.max(0, h - 3));
     }
   }
 
