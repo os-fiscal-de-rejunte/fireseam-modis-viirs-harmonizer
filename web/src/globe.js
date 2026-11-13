@@ -453,10 +453,16 @@ export function createGlobe(container, { onHover, onClick, onAreaDrag, onAreaSel
   return api;
 }
 
-// [lon, lat] of a drag event, or null when the pointer is off the globe.
+// [lon, lat] of a drag event, or null when the pointer is off the globe. Off the globe,
+// GlobeViewport.unproject returns a finite point on the limb, so a hit is told from a miss by
+// projecting the point back: it lands under the cursor only when the ray really met the sphere.
 function dragPoint(info) {
-  const c = info.coordinate || (info.viewport && info.viewport.unproject([info.x, info.y]));
-  return c && Number.isFinite(c[0]) && Number.isFinite(c[1]) ? [c[0], c[1]] : null;
+  const c = info.coordinate;
+  const v = info.viewport;
+  if (!c || !v || !Number.isFinite(c[0]) || !Number.isFinite(c[1])) return null;
+  const p = v.project([c[0], c[1]]);
+  if (Math.hypot(p[0] - (info.x - v.x), p[1] - (info.y - v.y)) > 1) return null;
+  return [c[0], c[1]];
 }
 
 function centroid(ring) {
