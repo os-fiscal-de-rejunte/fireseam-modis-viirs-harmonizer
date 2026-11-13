@@ -213,4 +213,22 @@ describe("loadCube", () => {
     await expect(loadCube("./b")).rejects.toThrow();
     expect(fetchMock.mock.calls.length).toBeGreaterThan(calls);
   });
+
+  it("names the file when fetch rejects", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url) => {
+      if (url.endsWith("index.json")) return ok(index);
+      if (url.endsWith("2020.bin")) throw new TypeError("Failed to fetch");
+      return ok(cubeBuffer([]));
+    }));
+    await expect(loadCube("./c")).rejects.toThrow(/cube\/2020\.bin/);
+  });
+
+  it("names the file when the body is not a multiple of 7", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url) => {
+      if (url.endsWith("index.json")) return ok(index);
+      if (url.endsWith("2020.bin")) return ok(new ArrayBuffer(6));
+      return ok(cubeBuffer([]));
+    }));
+    await expect(loadCube("./d")).rejects.toThrow(/cube\/2020\.bin/);
+  });
 });

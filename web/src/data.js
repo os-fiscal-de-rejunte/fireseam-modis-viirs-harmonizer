@@ -112,9 +112,19 @@ export function decodeCube(buf) {
 const cubeCache = new Map();
 
 async function fetchCubeYear(year, base) {
-  const res = await fetch(`${base}/cube/${year}.bin`);
-  if (!res.ok) throw new Error(`Could not load cube/${year}.bin (HTTP ${res.status})`);
-  return decodeCube(await res.arrayBuffer());
+  const name = `cube/${year}.bin`;
+  let res;
+  try {
+    res = await fetch(`${base}/${name}`);
+  } catch (err) {
+    throw new Error(`Could not load ${name}: ${err.message}`);
+  }
+  if (!res.ok) throw new Error(`Could not load ${name} (HTTP ${res.status})`);
+  try {
+    return decodeCube(await res.arrayBuffer());
+  } catch (err) {
+    throw new Error(`Could not load ${name}: ${err.message}`);
+  }
 }
 
 export function loadCube(base = "./data") {
