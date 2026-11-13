@@ -8,7 +8,7 @@ About 71 spoken words. Captions are the on-screen text.
 | 5-14 s | Yearly totals view (bottom strip, switch to "Yearly totals"): the raw MODIS and VIIRS lines and the jump at 2012 | "Two satellites watch fire from space. They see it differently, so joining their records makes a jump in 2012 that is not real." | Two sensors, one artificial jump in 2012 |
 | 14-21 s | Switch back to "Calendar" (harmonized weekly heatmap), then turn on Ghosts only on the globe | "We convert MODIS into VIIRS-equivalent weekly counts. Tested one year at a time, it beats a monthly ratio in 9 of 14 years." | Weekly error 217.56 vs 240.27, ahead in 9 of 14 years. 52.3% of S-NPP detections had no Aqua match in the same overpass, 2012-2021 |
 | 21-26 s | Press Select area and drag a rectangle on the globe; the calendar marks unusual weeks and the critical period | "Select any area: its calendar, unusual weeks and critical period follow." | Your area, its unusual weeks, its critical period. One conversion factor for the whole region |
-| 26-30 s | Outlook tab on the globe | "NASA plans to end MODIS science in 2027. This bridges 26 years of fire." | MODIS science ends in 2027 (NASA). 2001-2026, one calendar |
+| 26-30 s | Outlook tab on the globe | "NASA plans to end MODIS science in 2027. This bridges 26 years of fire." | MODIS science projected to end in 2027 (NASA). 2001-2026, one calendar |
 
 Spoken word count: 71 (23 + 23 + 11 + 14 across the four voiced rows).
 
