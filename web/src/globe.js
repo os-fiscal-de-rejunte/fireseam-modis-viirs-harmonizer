@@ -141,7 +141,7 @@ export function densityScale(count) {
   return Math.min(1, Math.max(0.3, Math.sqrt(4000 / Math.max(1, count))));
 }
 
-export function createGlobe(container, { onHover, onClick, onAreaDrag, onAreaSelect } = {}) {
+export function createGlobe(container, { onHover, onClick, onAreaDrag, onAreaSelect, onAreaCancel } = {}) {
   const state = {
     mode: "past",
     view: { ...PANTANAL, pitch: 0, bearing: 0 },
@@ -189,7 +189,11 @@ export function createGlobe(container, { onHover, onClick, onAreaDrag, onAreaSel
     onDragEnd: (info) => {
       const d = drag;
       drag = null;
-      if (!d || !d.a || !dragPoint(info)) return;
+      if (!d || !d.a) return;
+      if (!dragPoint(info)) {
+        if (onAreaCancel) onAreaCancel();
+        return;
+      }
       if (onAreaSelect) onAreaSelect(d.a, d.b);
     },
     onHover: (info) => onHover && onHover(info),
@@ -421,7 +425,11 @@ export function createGlobe(container, { onHover, onClick, onAreaDrag, onAreaSel
     },
     setSelecting(on) {
       state.selecting = on;
-      if (!on) drag = null;
+      if (!on) {
+        const dropped = drag && drag.a;
+        drag = null;
+        if (dropped && onAreaCancel) onAreaCancel();
+      }
       deck.setProps({ controller: on ? false : { inertia: true } });
     },
     setPoints(points, range, show) {

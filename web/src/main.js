@@ -136,7 +136,7 @@ function updateReadout() {
   if (cell) {
     parts.push(rangeText(cell), unusualText(active.analysis.stats.get(`${state.year}:${state.week}`)));
     const ytd = yearToDate(active.calendar, state.year, state.week);
-    if (ytd.percentile !== null) {
+    if (active.analysis.sufficient && ytd.percentile !== null) {
       parts.push(
         `${state.year} to date: ${fmt(ytd.value)}, above ${Math.round(ytd.percentile * 100)}% of other years`,
       );
@@ -367,7 +367,12 @@ function cellTip(info) {
 function setSelecting(on) {
   state.selecting = on;
   globe.setSelecting(on);
+  if (!on) drawCommittedAoi();
   $("aoi-select").setAttribute("aria-pressed", String(on));
+}
+
+function drawCommittedAoi() {
+  globe.setAoi(state.aoi ? areaBounds(state.aoi) : null);
 }
 
 function cellsOf(a, b) {
@@ -390,6 +395,8 @@ function criticalText(analysis) {
 }
 
 function showActive(aoi, calendar) {
+  setPlaying(false);
+  setHearing(false);
   state.aoi = aoi;
   active = { calendar, analysis: analyze(calendar) };
   heat.setCalendar(active.calendar, active.analysis);
@@ -522,9 +529,12 @@ async function start() {
       }
     },
     onAreaDrag: (a, b) => globe.setAoi(areaBounds(cellsOf(a, b))),
+    onAreaCancel: drawCommittedAoi,
     onAreaSelect: (a, b) => {
+      const aoi = cellsOf(a, b);
       setSelecting(false);
-      setAoi(cellsOf(a, b));
+      globe.setAoi(areaBounds(aoi));
+      setAoi(aoi);
     },
   });
   heat = createHeatmap($("cal"), data.calendar, {
