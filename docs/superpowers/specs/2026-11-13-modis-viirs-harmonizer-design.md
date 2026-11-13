@@ -148,7 +148,7 @@ the region. This is a limitation and must appear in the README and in the app.
 
 `export.py` writes a sparse cell x week cube next to the existing files.
 
-- `cube/<year>.bin`, one per year 2001-2026. Columnar blocks, in this order, each of length
+- `cube/<year>.bin`, one per year that has at least one entry (as `points/` does). Columnar blocks, in this order, each of length
   `n`: `cell` (uint16 little-endian, `cy * 45 + cx`), `week` (uint8, 1-52), `modis` (uint16
   LE, Terra + Aqua detections), `viirs` (uint16 LE, S-NPP detections). One entry per
   (cell, week) where either count is above zero, sorted by week and then cell.
@@ -156,7 +156,8 @@ the region. This is a limitation and must appear in the README and in the app.
 - The exporter fails if any count exceeds 65535. It does not clip.
 - `schema.validate_export` checks the cube: file sizes match `n`, cells and weeks are in range,
   and per-week sums match `calendar.json` (`modis` and `viirs`, where those are not null).
-- Size budget: 6 MB for all 26 files. Measure after the first real export. If it is over
+- Size budget: 6 MB for all files (an estimate from the published points gives about 1.5 MB).
+  Measure after the first real export. If it is over
   budget, report the measured size and stop for a decision; do not change the format without
   one.
 
