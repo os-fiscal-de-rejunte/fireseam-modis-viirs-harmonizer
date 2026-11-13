@@ -31,11 +31,18 @@ const compact = (v) => (v >= 1000 ? `${+(v / 1000).toFixed(1)}k` : String(v));
 
 export function createYearly(canvas, totals, { onSelect }) {
   const ctx = canvas.getContext("2d");
-  const years = totals.map((t) => t.year);
-  const ticks = niceTicks(
-    Math.max(0, ...totals.flatMap((t) => ORDER.map((s) => t[s] ?? 0))),
-  );
-  const top = ticks[ticks.length - 1] || 1;
+  let years;
+  let ticks;
+  let top;
+  function load(next) {
+    totals = next;
+    years = totals.map((t) => t.year);
+    ticks = niceTicks(
+      Math.max(0, ...totals.flatMap((t) => ORDER.map((s) => t[s] ?? 0))),
+    );
+    top = ticks[ticks.length - 1] || 1;
+  }
+  load(totals);
   let selected = null;
   let geom = { w: 1, h: 1 };
 
@@ -178,6 +185,10 @@ export function createYearly(canvas, totals, { onSelect }) {
   draw();
 
   return {
+    setTotals(next) {
+      load(next);
+      draw();
+    },
     select(year) {
       selected = year;
       draw();

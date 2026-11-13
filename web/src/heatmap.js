@@ -22,16 +22,31 @@ export function fireColor(t) {
 
 export function createHeatmap(canvas, calendar, { onSelect, onHover }) {
   const ctx = canvas.getContext("2d");
-  const years = [];
-  const grid = new Map();
+  let years = [];
+  let grid = new Map();
   let max = 0;
-  for (const w of calendar.weeks) {
-    grid.set(`${w.year}:${w.week}`, w);
-    if (w.harmonized != null && w.harmonized > max) max = w.harmonized;
-    if (!years.includes(w.year)) years.push(w.year);
+  let nYears = 0;
+  let stats = null;
+  let critical = null;
+  let selected = null;
+
+  function load(cal, analysis) {
+    years = [];
+    grid = new Map();
+    max = 0;
+    for (const w of cal.weeks) {
+      grid.set(`${w.year}:${w.week}`, w);
+      if (w.harmonized != null && w.harmonized > max) max = w.harmonized;
+      if (!years.includes(w.year)) years.push(w.year);
+    }
+    nYears = years.length;
+    const on = analysis && analysis.sufficient;
+    stats = on ? analysis.stats : null;
+    critical = on ? analysis.critical : null;
   }
-  const nYears = years.length;
-  let selected = { year: years[0], week: 1 };
+
+  load(calendar);
+  selected = { year: years[0], week: 1 };
   let hover = null;
   let geom = { cw: 1, ch: 1, w: 1, h: 1 };
 
@@ -65,6 +80,25 @@ export function createHeatmap(canvas, calendar, { onSelect, onHover }) {
     ctx.restore();
   }
 
+  function mark(st, x, y, w, h) {
+    if (!st.unusual && !st.record) return;
+    ctx.fillStyle = "#ffffff";
+    const leg = Math.min(4, h - 2);
+    if (leg > 0) {
+      ctx.beginPath();
+      ctx.moveTo(x + w - leg, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w, y + leg);
+      ctx.closePath();
+      ctx.fill();
+    }
+    if (st.record) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    }
+  }
+
   function draw() {
     const { cw, ch, w, h } = geom;
     ctx.clearRect(0, 0, w, h);
@@ -85,6 +119,8 @@ export function createHeatmap(canvas, calendar, { onSelect, onHover }) {
         ctx.fillStyle = gap ? GAP : fireColor(Math.sqrt(cell.harmonized) / root);
         ctx.fillRect(x, y, Math.ceil(cw) - 1, Math.max(1, ch - 1));
         if (!gap && cell.status === "estimated") hatch(x, y, cw - 1, ch - 1);
+        const st = stats && stats.get(`${year}:${week}`);
+        if (st) mark(st, x, y, Math.ceil(cw) - 1, Math.max(1, ch - 1));
       }
     });
     // month ticks, approximated on the 52-week grid
@@ -93,6 +129,11 @@ export function createHeatmap(canvas, calendar, { onSelect, onHover }) {
     MONTHS.forEach((m, i) => {
       ctx.fillText(m, LABEL_W + ((i * 52) / 12) * cw + 1, AXIS_H / 2);
     });
+    if (critical) {
+      ctx.fillStyle = "#ffb347";
+      const x0 = LABEL_W + (critical.start - 1) * cw;
+      ctx.fillRect(x0, AXIS_H - 2, (critical.end - critical.start + 1) * cw, 2);
+    }
     outline(hover, "rgba(255,255,255,0.45)", 1);
     outline(selected, "#ffffff", 1.75);
   }
@@ -129,7 +170,7 @@ export function createHeatmap(canvas, calendar, { onSelect, onHover }) {
       hover = pos;
       draw();
     }
-    onHover(pos, ev, pos && grid.get(`${pos.year}:${pos.week}`));
+    onHover(pos, ev, pos && grid.get(`${pos.year}:${pos.week}`), pos && stats?.get(`${pos.year}:${pos.week}`));
   });
   canvas.addEventListener("pointerleave", () => {
     hover = null;
@@ -150,7 +191,14 @@ export function createHeatmap(canvas, calendar, { onSelect, onHover }) {
   draw();
 
   return {
-    max,
+    get max() {
+      return max;
+    },
+    setCalendar(cal, analysis) {
+      load(cal, analysis);
+      layout();
+      draw();
+    },
     select(year, week) {
       selected = { year, week };
       draw();
