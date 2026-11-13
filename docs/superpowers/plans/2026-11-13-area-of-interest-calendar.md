@@ -96,7 +96,9 @@ def test_cube_2020_matches_the_detections(exported):
         df = df[df["year"] == 2020]
         cx, cy = cell_index(df["lon"].to_numpy(), df["lat"].to_numpy())
         want: dict[tuple[int, int], int] = {}
-        for c, w in zip((cy.astype(int) * config.NX + cx).tolist(), df["week"].tolist(), strict=True):
+        for c, w in zip(
+            (cy.astype(int) * config.NX + cx).tolist(), df["week"].tolist(), strict=True
+        ):
             want[(c, int(w))] = want.get((c, int(w)), 0) + 1
         got = {
             (int(c), int(w)): int(v)
@@ -128,7 +130,9 @@ Extend the existing `test_second_run_is_byte_identical_and_removes_stale_files`:
 
 ```python
 def _cube_n(export, year="2020"):
-    return json.loads((export / "cube" / "index.json").read_text(encoding="utf-8"))["years"][year]["n"]
+    return json.loads((export / "cube" / "index.json").read_text(encoding="utf-8"))["years"][year][
+        "n"
+    ]
 
 
 def test_truncated_cube_rejected(export):
