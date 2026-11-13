@@ -9,7 +9,18 @@ import numpy as np
 
 from mvh import config
 
-_WEEK_KEYS = ("year", "week", "modis", "viirs", "pred", "harmonized", "status", "nrt")
+_WEEK_KEYS = (
+    "year",
+    "week",
+    "modis",
+    "viirs",
+    "pred",
+    "lo",
+    "hi",
+    "harmonized",
+    "status",
+    "nrt",
+)
 _N_WEEKS = (config.YEAR_END - config.YEAR_START + 1) * config.WEEKS_PER_YEAR
 
 
@@ -99,6 +110,14 @@ def _check_calendar(cal) -> str:
         status = "observed" if viirs is not None else "estimated" if pred is not None else "gap"
         if wk.get("status") != status:
             _fail(f"{at}.status must be {status!r}")
+        lo, hi = wk["lo"], wk["hi"]
+        if status != "estimated":
+            if lo is not None or hi is not None:
+                _fail(f"{at}: lo and hi must be null unless status is 'estimated'")
+        elif not (_is_num(lo) and _is_num(hi) and lo >= 0 and hi >= 0):
+            _fail(f"{at}: lo and hi must be numbers >= 0 when status is 'estimated'")
+        elif lo > hi:
+            _fail(f"{at}: lo must be <= hi")
     return meta["method"]
 
 
@@ -255,6 +274,12 @@ def _check_metrics(metrics, method: str) -> None:
             need(row, k, "int", at)
         for k in ("aqua_unmatched", "viirs_unmatched"):
             need(row, k, "frac", at)
+
+    unc = need(metrics, "uncertainty", "obj", "root")
+    for mode in ("full", "terra"):
+        band = need(unc, mode, "obj", "uncertainty")
+        for k in ("q10", "q90"):
+            need(band, k, "num", f"uncertainty.{mode}")
 
     dropped = need(need(metrics, "filters", "obj", "root"), "dropped_type", "obj", "filters")
     for k in ("modis", "viirs"):

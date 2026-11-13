@@ -2,7 +2,7 @@ import json
 
 import pandas as pd
 
-from mvh.validate import is_accepted, summarize, weekly_total_scores
+from mvh.validate import is_accepted, ratio_quantiles, summarize, weekly_total_scores
 
 
 def _by_year(model, baseline):
@@ -58,3 +58,15 @@ def test_summarize_contract_keys_and_json():
     json.dumps(out)
     assert out["accepted"] is False  # only 2 years, MIN_YEARS_WON is 8
     assert out["method"] == "baseline"
+
+
+def test_ratio_quantiles_use_valid_weeks_only():
+    cv = pd.DataFrame(
+        {
+            "y": [0, 9, 19, 39, 999],
+            "pred_model": [0.0, 9.0, 9.0, 9.0, 0.0],
+            "valid": [True, True, True, True, False],
+        }
+    )
+    # ratios (y + 1) / (pred + 1) on valid rows: 1, 1, 2, 4
+    assert ratio_quantiles(cv, "pred_model") == {"q10": 1.0, "q90": 3.4}

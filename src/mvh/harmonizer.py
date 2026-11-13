@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 
 from mvh.baseline import fit_baseline, modis_count, predict_baseline
 from mvh.grid import weekly_totals
-from mvh.validate import summarize
+from mvh.validate import ratio_quantiles, summarize
 
 CV_YEARS = range(2012, 2026)
 _SATS = {"full": ["terra", "aqua"], "terra": ["terra"]}
@@ -84,6 +84,10 @@ def harmonize(cube: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     cvs = {mode: cross_validate(totals, mode) for mode in _MODES}
     metrics = summarize(cvs["full"], cvs["terra"])
     use_model = {"full": metrics["accepted"], "terra": metrics["terra_only"]["accepted"]}
+    metrics["uncertainty"] = {
+        mode: ratio_quantiles(cvs[mode], "pred_model" if use_model[mode] else "pred_baseline")
+        for mode in _MODES
+    }
 
     year = totals["year"].to_numpy()
     in_cv = (year >= CV_YEARS.start) & (year < CV_YEARS.stop)

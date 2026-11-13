@@ -23,6 +23,14 @@ def weekly_total_scores(cv: pd.DataFrame) -> pd.DataFrame:
     return by_year.drop(columns=["y", "modis"]).reset_index()
 
 
+def ratio_quantiles(cv: pd.DataFrame, pred_col: str) -> dict[str, float]:
+    """10th and 90th percentile of (y + 1) / (pred + 1) on valid held-out weeks."""
+    valid = cv[cv["valid"]]
+    ratio = (valid["y"] + 1) / (valid[pred_col] + 1)
+    q10, q90 = np.quantile(ratio, [0.1, 0.9])
+    return {"q10": round(float(q10), 4), "q90": round(float(q90), 4)}
+
+
 def is_accepted(by_year: pd.DataFrame, min_years_won: int = MIN_YEARS_WON) -> bool:
     mae_model, mae_base = by_year["mae_model"], by_year["mae_baseline"]
     won = int((mae_model < mae_base).sum())

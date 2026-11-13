@@ -155,3 +155,18 @@ def test_cube_count_above_uint16_fails():
     )  # fmt: skip
     with pytest.raises(ValueError, match="65535"):
         _cube_blocks(cube)
+
+
+def test_band_only_on_estimated_weeks(exported):
+    cal = json.loads((exported / "calendar.json").read_text(encoding="utf-8"))
+    unc = json.loads((exported / "metrics.json").read_text(encoding="utf-8"))["uncertainty"]
+    seen = set()
+    for w in cal["weeks"]:
+        if w["status"] != "estimated":
+            assert w["lo"] is None and w["hi"] is None
+            continue
+        mode = "full" if config.sat_covers("Aqua", w["year"], w["week"]) else "terra"
+        seen.add(mode)
+        assert w["lo"] == round(w["pred"] * unc[mode]["q10"], 1)
+        assert w["hi"] == round(w["pred"] * unc[mode]["q90"], 1)
+    assert seen == {"full", "terra"}

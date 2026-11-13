@@ -27,11 +27,12 @@ def _stage(label: str) -> None:
     _STAGE_START = now
 
 
-def _calendar(totals: pd.DataFrame, weekly: pd.DataFrame, method: str) -> dict:
+def _calendar(totals: pd.DataFrame, weekly: pd.DataFrame, method: str, uncertainty: dict) -> dict:
     n_modis = (totals["n_terra"] + totals["n_aqua"]).to_numpy()
     cov_modis = (totals["cov_terra"] | totals["cov_aqua"]).to_numpy()
     n_viirs = totals["n_viirs"].to_numpy()
     cov_viirs = totals["cov_snpp"].to_numpy()
+    cov_aqua = totals["cov_aqua"].to_numpy()
     pred = weekly["pred"].to_numpy()
     weeks = []
     for i, (year, week) in enumerate(zip(totals["year"], totals["week"], strict=True)):
@@ -39,6 +40,10 @@ def _calendar(totals: pd.DataFrame, weekly: pd.DataFrame, method: str) -> dict:
         modis = int(n_modis[i]) if cov_modis[i] else None
         viirs = int(n_viirs[i]) if cov_viirs[i] else None
         p = None if np.isnan(pred[i]) else round(float(pred[i]), 1)
+        lo = hi = None
+        if viirs is None and p is not None:
+            band = uncertainty["full" if cov_aqua[i] else "terra"]
+            lo, hi = round(p * band["q10"], 1), round(p * band["q90"], 1)
         weeks.append(
             {
                 "year": year,
@@ -46,6 +51,8 @@ def _calendar(totals: pd.DataFrame, weekly: pd.DataFrame, method: str) -> dict:
                 "modis": modis,
                 "viirs": viirs,
                 "pred": p,
+                "lo": lo,
+                "hi": hi,
                 "harmonized": viirs if viirs is not None else p,
                 "status": "observed"
                 if viirs is not None
@@ -184,7 +191,7 @@ def export_all(raw_root: Path | None, out: Path) -> None:
             }
         },
     }
-    calendar = _calendar(totals, weekly, metrics["method"])
+    calendar = _calendar(totals, weekly, metrics["method"], metrics["uncertainty"])
 
     out.mkdir(parents=True, exist_ok=True)
     _clean(out)

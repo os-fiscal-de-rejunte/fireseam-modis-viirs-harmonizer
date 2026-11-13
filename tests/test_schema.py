@@ -76,11 +76,26 @@ def _obs(w, **kw):
             r"weeks\[0\]\.viirs must be null",
         ),
         (lambda w: w[0].update(modis=None), r"weeks\[0\]\.modis must be null iff"),
+        (
+            lambda w: _obs(w, lo=1.0),
+            r"lo and hi must be null unless status is 'estimated'",
+        ),
+        (lambda w: w[0].update(lo=w[0]["hi"] + 1), r"lo must be <= hi"),
+        (
+            lambda w: w[0].update(lo=None),
+            r"lo and hi must be numbers >= 0 when status is 'estimated'",
+        ),
     ],
 )
 def test_bad_calendar_rejected(export, mutate, match):
     _edit_cal(export, mutate)
     with pytest.raises(ValueError, match=match):
+        validate_export(export)
+
+
+def test_missing_uncertainty_rejected(export):
+    _edit(export / "metrics.json", lambda d: d.pop("uncertainty"))
+    with pytest.raises(ValueError, match="uncertainty is missing"):
         validate_export(export)
 
 
