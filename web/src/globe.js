@@ -112,9 +112,10 @@ const CATEGORIES = ["modis", "ghostModis", "viirs", "ghostViirs"];
 const CATEGORY_COLOR = { modis: "modis", viirs: "viirs", ghostModis: "ghost", ghostViirs: "ghost" };
 
 // One colour array per layer: a point is opaque in the layer of its category and transparent in
-// the others.
-function buildColors(points, show, category) {
-  const { n, flags } = points;
+// the others. Outside `bounds` ([lonMin, latMin, lonMax, latMax], edges inside) alpha drops to 25%.
+export function buildColors(points, show, category, bounds = null) {
+  const { n, flags, lon, lat } = points;
+  const dim = Math.round(255 * 0.25);
   const color = COLORS[CATEGORY_COLOR[category]];
   const colors = new Uint8Array(4 * n);
   for (let i = 0; i < n; i++) {
@@ -127,7 +128,10 @@ function buildColors(points, show, category) {
     colors[4 * i] = color[0];
     colors[4 * i + 1] = color[1];
     colors[4 * i + 2] = color[2];
-    colors[4 * i + 3] = 255;
+    const outside =
+      bounds !== null &&
+      (lon[i] < bounds[0] || lon[i] > bounds[2] || lat[i] < bounds[1] || lat[i] > bounds[3]);
+    colors[4 * i + 3] = outside ? dim : 255;
   }
   return colors;
 }
@@ -379,6 +383,17 @@ export function createGlobe(container, { onHover, onClick, onAreaDrag, onAreaSel
     deck.setProps({ viewState: state.view });
   }
 
+  function updateColors() {
+    const { points, show, aoi } = state;
+    if (!points || cache.points !== points) return;
+    const key = `${show.modis}${show.viirs}${show.ghostOnly}${aoi ? aoi.join(",") : ""}`;
+    if (key === cache.colorKey) return;
+    cache.colors = Object.fromEntries(
+      CATEGORIES.map((c) => [c, buildColors(points, show, c, aoi)]),
+    );
+    cache.colorKey = key;
+  }
+
   const api = {
     setMode(mode) {
       if (mode === state.mode) return;
@@ -396,7 +411,12 @@ export function createGlobe(container, { onHover, onClick, onAreaDrag, onAreaSel
       render();
     },
     setAoi(bounds) {
+      // Called on every pointer move of a drag: recolour only when the bounds really change.
+      const same =
+        bounds === state.aoi ||
+        (bounds && state.aoi && bounds.every((v, i) => v === state.aoi[i]));
       state.aoi = bounds;
+      if (!same) updateColors();
       render();
     },
     setSelecting(on) {
@@ -412,16 +432,8 @@ export function createGlobe(container, { onHover, onClick, onAreaDrag, onAreaSel
         cache.attrs = buildAttributes(points);
         cache.colorKey = "";
       }
-      if (points) {
-        const key = `${show.modis}${show.viirs}${show.ghostOnly}`;
-        if (key !== cache.colorKey) {
-          cache.colors = Object.fromEntries(
-            CATEGORIES.map((c) => [c, buildColors(points, show, c)]),
-          );
-          cache.colorKey = key;
-        }
-      }
       state.points = points;
+      updateColors();
       render();
     },
     setForecast(forecast) {
