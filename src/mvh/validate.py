@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 MIN_YEARS_WON = 8
+MIN_YEARS_SCORED = 14
 
 
 def weekly_total_scores(cv: pd.DataFrame) -> pd.DataFrame:
@@ -46,10 +47,14 @@ def _headline(by_year: pd.DataFrame) -> dict:
     }
 
 
+def _accepted(by_year: pd.DataFrame) -> bool:
+    return len(by_year) >= MIN_YEARS_SCORED and is_accepted(by_year)
+
+
 def summarize(cv_full: pd.DataFrame, cv_terra: pd.DataFrame) -> dict:
     full = weekly_total_scores(cv_full)
     terra = weekly_total_scores(cv_terra)
-    accepted = is_accepted(full)
+    accepted = _accepted(full)
     return {
         "method": "model" if accepted else "baseline",
         "accepted": accepted,
@@ -63,5 +68,5 @@ def summarize(cv_full: pd.DataFrame, cv_terra: pd.DataFrame) -> dict:
             }
             for r in full.itertuples()
         ],
-        "terra_only": {"accepted": is_accepted(terra), **_headline(terra)},
+        "terra_only": {"accepted": _accepted(terra), **_headline(terra)},
     }

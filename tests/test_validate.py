@@ -70,3 +70,22 @@ def test_ratio_quantiles_use_valid_weeks_only():
     )
     # ratios (y + 1) / (pred + 1) on valid rows: 1, 1, 2, 4
     assert ratio_quantiles(cv, "pred_model") == {"q10": 1.0, "q90": 3.4}
+
+
+def _cv_years(first, last):
+    rows = [
+        (y, w, 10 + w, 3, 10 + w, 10 + w + 5.0, True)
+        for y in range(first, last + 1)
+        for w in (1, 2)
+    ]
+    return _cv(rows)
+
+
+def test_fewer_than_14_years_is_not_accepted():
+    short = _cv_years(2012, 2024)
+    out = summarize(short, short)
+    assert out["weekly_total"]["years"] == 13
+    assert out["accepted"] is False
+    assert out["terra_only"]["accepted"] is False
+    full = _cv_years(2012, 2025)
+    assert summarize(full, full)["accepted"] is True
