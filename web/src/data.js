@@ -5,7 +5,7 @@ export function weekIndex(year, week) {
   return (year - FIRST_YEAR) * WEEKS + week - 1;
 }
 
-export function decodePoints(buf) {
+export function decodePoints(buf, origin = [-58.5, -22.5]) {
   if (buf.byteLength % 8 !== 0) {
     throw new Error(`Point file has ${buf.byteLength} bytes, not a multiple of 8`);
   }
@@ -17,8 +17,8 @@ export function decodePoints(buf) {
   const lon = new Float32Array(n);
   const lat = new Float32Array(n);
   for (let i = 0; i < n; i++) {
-    lon[i] = lonCode[i] / 1000 - 58.5;
-    lat[i] = latCode[i] / 1000 - 22.5;
+    lon[i] = lonCode[i] / 1000 + origin[0];
+    lat[i] = latCode[i] / 1000 + origin[1];
   }
   const flags = new Uint8Array(buf.slice(6 * n, 7 * n));
   const frp = new Uint8Array(buf.slice(7 * n, 8 * n));
@@ -67,6 +67,39 @@ export async function loadData(base = "./data") {
   return { calendar, metrics, index };
 }
 
+export function loadRegions(base = "./data") {
+  return fetchJson(`${base}/regions.json`, "regions.json");
+}
+
+export function regionBase(base, region) {
+  return region.path === "." ? base : `${base}/${region.path}`;
+}
+
+export async function loadRegionData(region, base = "./data") {
+  const rb = regionBase(base, region);
+  const hasPoints = (region.has ?? []).includes("points");
+  const [calendar, metrics, index] = await Promise.all([
+    fetchJson(`${rb}/calendar.json`, "calendar.json"),
+    fetchJson(`${rb}/metrics.json`, "metrics.json"),
+    hasPoints ? fetchJson(`${rb}/points/index.json`, "points/index.json") : null,
+  ]);
+  return { calendar, metrics, index };
+}
+
+export function loadCalendars(regions, base = "./data") {
+  return Promise.all(
+    regions.map(async (region) => {
+      if (region.status !== "ok") return { region, calendar: null, error: null };
+      try {
+        const calendar = await fetchJson(`${regionBase(base, region)}/calendar.json`, `${region.id} calendar.json`);
+        return { region, calendar, error: null };
+      } catch (err) {
+        return { region, calendar: null, error: err.message };
+      }
+    }),
+  );
+}
+
 export async function loadForecast(base = "./data") {
   let res;
   try {
@@ -84,18 +117,19 @@ export async function loadForecast(base = "./data") {
 
 const yearCache = new Map();
 
-export function loadYear(year, base = "./data") {
-  if (!yearCache.has(year)) {
+export function loadYear(year, base = "./data", origin = undefined) {
+  const key = `${base}|${year}`;
+  if (!yearCache.has(key)) {
     const p = fetch(`${base}/points/${year}.bin`)
       .then((res) => {
         if (!res.ok) throw new Error(`Could not load points/${year}.bin (HTTP ${res.status})`);
         return res.arrayBuffer();
       })
-      .then(decodePoints);
-    p.catch(() => yearCache.delete(year));
-    yearCache.set(year, p);
+      .then((buf) => decodePoints(buf, origin));
+    p.catch(() => yearCache.delete(key));
+    yearCache.set(key, p);
   }
-  return yearCache.get(year);
+  return yearCache.get(key);
 }
 
 export function decodeCube(buf) {

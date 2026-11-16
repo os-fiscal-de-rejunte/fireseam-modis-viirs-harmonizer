@@ -10,6 +10,10 @@ import {
   yearlyTotals,
   decodeCube,
   loadCube,
+  loadRegions,
+  regionBase,
+  loadRegionData,
+  loadCalendars,
 } from "./data.js";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -250,5 +254,72 @@ describe("loadCube", () => {
     const err = await loadCube("./f").catch((e) => e);
     expect(err.message).toMatch(/cube\/2020\.bin/);
     expect(err.message).toMatch(/expected 2 entries, got 1/);
+  });
+});
+
+describe("decodePoints origin", () => {
+  it("decodes against a region origin and keeps the default", () => {
+    const buf = buildBuffer([{ lon: 1000, lat: 1000, doy: 1, flags: 0, frp: 0 }]);
+    const d = decodePoints(buf, [100, -4]);
+    expect(d.lon[0]).toBeCloseTo(101, 4);
+    expect(d.lat[0]).toBeCloseTo(-3, 4);
+    const e = decodePoints(buf);
+    expect(e.lon[0]).toBeCloseTo(-57.5, 4);
+    expect(e.lat[0]).toBeCloseTo(-21.5, 4);
+  });
+});
+
+const okJson = (body) => ({ ok: true, status: 200, json: async () => body });
+
+describe("regionBase", () => {
+  it("is the base for the root path and a subfolder otherwise", () => {
+    expect(regionBase("./data", { path: "." })).toBe("./data");
+    expect(regionBase("./data", { path: "regions/iberia" })).toBe("./data/regions/iberia");
+  });
+});
+
+describe("loadRegions", () => {
+  it("reads regions.json", async () => {
+    const fetchMock = vi.fn(async () => okJson([{ id: "a" }]));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await loadRegions("./d")).toEqual([{ id: "a" }]);
+    expect(fetchMock).toHaveBeenCalledWith("./d/regions.json");
+  });
+});
+
+describe("loadRegionData", () => {
+  it("never fetches the points index without the points file", async () => {
+    const urls = [];
+    vi.stubGlobal("fetch", vi.fn(async (u) => (urls.push(u), okJson({ u }))));
+    const out = await loadRegionData({ path: "regions/x", has: [] }, "./data");
+    expect(out.index).toBeNull();
+    expect(out.calendar).toEqual({ u: "./data/regions/x/calendar.json" });
+    expect(urls.some((u) => u.includes("points/index.json"))).toBe(false);
+  });
+  it("fetches the points index when listed", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (u) => okJson({ u })));
+    const out = await loadRegionData({ path: ".", has: ["points"] }, "./data");
+    expect(out.index).toEqual({ u: "./data/points/index.json" });
+  });
+});
+
+describe("loadCalendars", () => {
+  it("keeps a failure as an error and never throws", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (u) => (u.includes("/b/") ? { ok: false, status: 404 } : okJson({ u }))),
+    );
+    const regions = [
+      { id: "a", status: "ok", path: "regions/a" },
+      { id: "b", status: "ok", path: "regions/b" },
+      { id: "c", status: "no_data", path: "regions/c" },
+    ];
+    const out = await loadCalendars(regions, "./data");
+    expect(out.map((e) => e.region.id)).toEqual(["a", "b", "c"]);
+    expect(out[0].calendar).toEqual({ u: "./data/regions/a/calendar.json" });
+    expect(out[0].error).toBeNull();
+    expect(out[1].calendar).toBeNull();
+    expect(out[1].error).toMatch(/404/);
+    expect([out[2].calendar, out[2].error]).toEqual([null, null]);
   });
 });
