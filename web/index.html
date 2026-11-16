@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pantanal Fire Record - MODIS and VIIRS harmonized</title>
+    <title>FireSeam - MODIS and VIIRS harmonized</title>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23ff9632'/%3E%3C/svg%3E"
@@ -11,70 +11,111 @@
     <script type="module" src="/src/main.js"></script>
   </head>
   <body>
-    <div id="app" data-mode="past">
+    <div id="app" data-mode="regions">
       <div id="globe" aria-label="Globe"></div>
 
       <header class="top">
-        <div class="brand">
-          <h1>Pantanal Fire Record</h1>
+        <div class="brand in-region">
+          <h1 id="region-heading" tabindex="-1"></h1>
           <p>One weekly calendar from two satellite generations, 2001-2026</p>
         </div>
         <nav class="tabs" id="tabs" aria-label="Mode">
-          <button class="tab is-active" data-mode="past" type="button">
+          <button class="tab is-active" data-mode="regions" type="button" id="tab-regions">
+            Planet <span>five regions</span>
+          </button>
+          <button class="tab" data-mode="past" type="button" id="tab-past" disabled>
             Past <span>harmonized record</span>
           </button>
-          <button class="tab" data-mode="outlook" type="button" id="tab-outlook" hidden>
+          <button class="tab" data-mode="outlook" type="button" id="tab-outlook" hidden disabled>
             Outlook <span>PYRO forecast</span>
           </button>
         </nav>
+        <div class="top-actions only-past">
+          <button type="button" class="btn" id="csv">Download CSV</button>
+          <button type="button" class="btn accent" id="briefing">Briefing</button>
+        </div>
+        <a class="btn" id="atlas-link" href="https://pyrosync-api.onrender.com/" target="_blank" rel="noopener"
+          title="PyroSync Atlas: the team's worldwide near-real-time fire monitor (opens in a new tab)">Live atlas &#8599;</a>
       </header>
 
+      <section class="cover only-regions" aria-label="Regions">
+        <h1>One fire calendar from two satellite generations</h1>
+        <p class="lede">MODIS has counted fires from orbit since 2001 and VIIRS since 2012. They do
+          not see fire the same way, and NASA projects the end of MODIS science in 2027. FireSeam
+          converts the MODIS years into VIIRS-equivalent weekly counts, region by region, and says how
+          far each conversion can be trusted.</p>
+        <ol class="regions" id="ranking"></ol>
+        <p class="hint">Sorted by how unusual the year to date is. Detections, not burned area.</p>
+      </section>
+
       <aside class="panel side-left only-past" aria-label="Controls">
-        <div class="field">
-          <label for="year">Year <output id="year-out">2020</output></label>
-          <input type="range" id="year" min="0" max="0" step="1" value="0" />
-        </div>
-        <div class="field">
-          <label for="week">Week <output id="week-out">1</output></label>
-          <input type="range" id="week" min="1" max="52" step="1" value="1" />
-        </div>
-        <div class="row">
-          <button type="button" class="btn" id="play">Play</button>
-          <button type="button" class="btn accent" id="hear">Hear 2020</button>
-        </div>
-        <p class="hint" id="audio-note" hidden></p>
-        <div class="chips" role="group" aria-label="Layers">
-          <label class="chip modis"><input type="checkbox" id="t-modis" checked /><i></i>MODIS</label>
-          <label class="chip viirs"><input type="checkbox" id="t-viirs" checked /><i></i>VIIRS</label>
-          <label class="chip ghost"><input type="checkbox" id="t-ghost" /><i></i>Ghosts only</label>
-        </div>
-        <div class="row">
-          <button type="button" class="btn" id="aoi-select" aria-pressed="false">Select area</button>
-          <button type="button" class="btn" id="aoi-clear" hidden>Whole region</button>
-          <button type="button" class="btn" id="csv">Download CSV</button>
-        </div>
-        <p class="hint" id="aoi-label">Whole region</p>
-        <p class="hint" id="aoi-assume" hidden>
-          Area values use each week's regional MODIS to VIIRS conversion.
-        </p>
-        <p class="hint warn" id="aoi-note" hidden></p>
-        <label class="switch"
-          ><input type="checkbox" id="t-cum" /><span>Cumulative since week 1</span></label
-        >
-        <ul class="legend">
-          <li><i class="dot modis"></i>MODIS (Terra + Aqua)</li>
-          <li><i class="dot viirs"></i>VIIRS (S-NPP)</li>
-          <li><i class="dot ghost"></i>Ghost: seen by Aqua or S-NPP but not the other</li>
-        </ul>
-        <p class="hint warn" id="ghost-note" hidden>
-          Aqua orbit drifting since 2022 - ghost counts not comparable
-        </p>
+        <section class="group" aria-labelledby="g-time">
+          <div class="group-head">
+            <h2 id="g-time">Time</h2>
+            <div class="group-actions">
+              <button type="button" class="btn" id="play">Play</button>
+              <button type="button" class="btn" id="hear">Hear 2020</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="year">Year</label>
+            <input type="range" id="year" min="0" max="0" step="1" value="0" />
+            <output id="year-out" for="year">2020</output>
+          </div>
+          <div class="field">
+            <label for="week">Week</label>
+            <input type="range" id="week" min="1" max="52" step="1" value="1" />
+            <output id="week-out" for="week">1</output>
+          </div>
+          <p class="hint" id="audio-note" hidden></p>
+        </section>
+        <section class="group" aria-labelledby="g-layers">
+          <div class="group-head"><h2 id="g-layers">Layers</h2></div>
+          <div class="chips" id="layer-chips" role="group" aria-label="Layers">
+            <label class="chip modis" title="MODIS (Terra + Aqua)"
+              ><input type="checkbox" id="t-modis" checked /><i></i>MODIS</label
+            >
+            <label class="chip viirs" title="VIIRS (S-NPP)"
+              ><input type="checkbox" id="t-viirs" checked /><i></i>VIIRS</label
+            >
+            <label class="chip ghost" title="Ghost: seen by Aqua or S-NPP but not the other"
+              ><input type="checkbox" id="t-ghost" /><i></i>Ghosts only</label
+            >
+          </div>
+          <p class="hint" id="legend">
+            MODIS: Terra and Aqua. VIIRS: S-NPP. Ghost: seen by only one of Aqua and S-NPP.
+          </p>
+          <div class="ramp-row" id="cells-ramp" hidden>
+            <span>Fewer</span><i class="ramp" id="cells-ramp-bar"></i><span>More</span>
+          </div>
+          <p class="hint" id="cells-label" hidden></p>
+          <label class="switch" id="cum-switch"
+            ><input type="checkbox" id="t-cum" /><span>Cumulative since week 1</span></label
+          >
+          <p class="hint warn one-line" id="ghost-note" title="Aqua has drifted since 2022: ghost counts are not comparable" hidden>
+            Aqua drift since 2022: ghosts not comparable
+          </p>
+        </section>
+        <section class="group" aria-labelledby="g-area">
+          <div class="group-head">
+            <h2 id="g-area">Area</h2>
+            <div class="group-actions">
+              <button type="button" class="btn" id="aoi-select" aria-pressed="false">Select area</button>
+              <button type="button" class="btn" id="aoi-clear" hidden>Whole region</button>
+            </div>
+          </div>
+          <p class="hint" id="aoi-label">Whole region</p>
+          <p class="hint one-line" id="aoi-assume" title="Area values use each week's regional MODIS to VIIRS conversion." hidden>
+            Converted with the region's weekly factor.
+          </p>
+          <p class="hint warn" id="aoi-note" hidden></p>
+        </section>
       </aside>
 
       <aside class="panel side-left only-outlook" aria-label="Outlook">
         <h2>What is projected</h2>
         <p class="event" id="fc-event"></p>
-        <p class="cover" id="fc-cover"></p>
+        <p id="fc-cover"></p>
         <p class="caveat">
           Seasonal projection from 2020-2023 MODIS history. Conditional probability of a satellite
           detection, not of ignition. No weather forecast input.
@@ -83,25 +124,26 @@
       </aside>
 
       <aside class="panel side-right only-past" aria-label="Headline">
-        <h2>Why it holds up</h2>
+        <h2>How it was checked</h2>
+        <div class="verdict">
+          <span class="badge" id="region-badge"></span>
+          <p id="state-note"></p>
+        </div>
         <div class="stat">
           <div class="big"><b id="h-model">-</b><em>vs</em><span id="h-base">-</span></div>
           <p id="h-err-label">Weekly error, model vs baseline</p>
         </div>
-        <div class="stat">
+        <div class="stat" id="stat-pairing">
           <div class="big"><b id="h-unmatched">-</b></div>
           <p id="h-unmatched-label">of S-NPP detections had no Aqua match in the same overpass</p>
         </div>
-        <div class="stat">
+        <div class="stat" id="stat-events">
           <div class="big">
             <b id="h-ev-modis" class="c-modis">-</b><em>vs</em
             ><b id="h-ev-viirs" class="c-viirs">-</b>
           </div>
           <p id="h-ev-label">Fire events, MODIS vs VIIRS</p>
         </div>
-        <p class="hint warn" id="baseline-note" hidden>
-          The published calendar uses the monthly ratio baseline because the model did not beat it.
-        </p>
       </aside>
 
       <aside class="panel side-right only-outlook" aria-label="Model skill">
@@ -111,13 +153,15 @@
       </aside>
 
       <div class="readout only-past" id="readout" aria-live="polite">
+        <p class="r-sentence" id="r-sentence" hidden></p>
         <div class="when"><span id="r-date">-</span><span class="badge" id="r-status">-</span></div>
         <div class="nums">
           <div><b id="r-modis" class="c-modis">-</b><small>MODIS</small></div>
           <div><b id="r-viirs" class="c-viirs">-</b><small>VIIRS</small></div>
           <div><b id="r-harm">-</b><small>harmonized</small></div>
         </div>
-        <p class="extra" id="r-extra"></p>
+        <p class="extra r-notes" id="r-extra"></p>
+        <p class="extra" id="r-alert"></p>
         <p class="empty" id="r-empty" hidden></p>
       </div>
 
@@ -129,20 +173,51 @@
               Calendar
             </button>
             <button type="button" data-view="yearly" aria-pressed="false">Yearly totals</button>
+            <button type="button" data-view="quality" aria-pressed="false">Reading quality</button>
+            <button type="button" data-view="alert" aria-pressed="false">Alert test</button>
           </div>
-          <p class="view-calendar">
-            <i class="sw obs"></i>Observed: VIIRS
-            <i class="sw est"></i>Estimated: MODIS converted to VIIRS-equivalent
-            <i class="sw gap"></i>No data
-          </p>
-          <p class="view-calendar" id="critical"></p>
-          <p class="view-yearly">
-            Raw counts jump when VIIRS starts in 2012. The harmonized series puts 2001-2026 on one
-            scale.
-          </p>
+          <div class="dock-notes">
+            <p class="view-calendar swatches">
+              <span><i class="sw obs"></i>Observed: VIIRS</span>
+              <span><i class="sw est"></i>Estimated: MODIS converted to VIIRS-equivalent</span>
+              <span><i class="sw gap"></i>No data</span>
+            </p>
+            <p class="view-calendar" id="critical"></p>
+            <p class="view-quality" id="quality-text"></p>
+            <p class="view-yearly">
+              Raw counts jump when VIIRS starts in 2012. The harmonized series puts 2001-2026 on one
+              scale.
+            </p>
+          </div>
         </div>
         <canvas id="cal" class="view-calendar"></canvas>
         <canvas id="yr" class="view-yearly"></canvas>
+        <canvas id="quality" class="view-quality"></canvas>
+        <div class="view-alert" id="alert-panel">
+          <label class="threshold" for="alert-p">Threshold <select id="alert-p"></select></label>
+          <div id="alert-body" class="alert-body">
+            <div class="alert-summary">
+              <div class="marks" id="alert-marks"></div>
+              <p id="alert-counts"></p>
+              <p id="alert-lead"></p>
+              <p class="hint">
+                Retrospective. The threshold is chosen on the same seasons it is scored on. The
+                critical period is computed from all years, including the tested one. Seasons before
+                2012 are model estimates. The 8 armed weeks and the 0.75 high-season percentile are
+                judgment values.
+              </p>
+            </div>
+            <div class="alert-scroll">
+              <table id="alert-table">
+                <thead>
+                  <tr><th>Year</th><th>Outcome</th><th>Alert week</th><th>Peak week</th><th>Lead</th><th>Yearly total</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <p id="alert-label" hidden></p>
+        </div>
       </section>
 
       <section class="dock only-outlook" aria-label="Month">
@@ -155,6 +230,24 @@
 
       <div id="tip" role="tooltip" hidden></div>
       <div id="fatal" hidden></div>
+    </div>
+
+    <div id="briefing-overlay" class="briefing-overlay" role="dialog" aria-modal="true" aria-labelledby="briefing-title" hidden>
+      <div class="briefing-card">
+        <div class="briefing-head">
+          <h2 id="briefing-title">Fire briefing</h2>
+          <div class="seg" id="briefing-lang" role="group" aria-label="Briefing language">
+            <button type="button" class="is-active" data-lang="en" lang="en" aria-pressed="true">English</button>
+            <button type="button" data-lang="pt-BR" lang="pt-BR" aria-pressed="false">Português</button>
+          </div>
+          <div class="briefing-actions">
+            <button type="button" class="btn" id="briefing-print">Print or save as PDF</button>
+            <button type="button" class="btn" id="briefing-download">Download HTML</button>
+            <button type="button" class="btn" id="briefing-close">Close</button>
+          </div>
+        </div>
+        <div id="briefing-body" class="briefing-body"></div>
+      </div>
     </div>
   </body>
 </html>
