@@ -1,30 +1,64 @@
 # Pitch script (30 seconds)
 
-About 71 spoken words. Captions are the on-screen text.
+One sentence: **FireSeam helps fire managers see when a week of burning is out of the
+ordinary, by joining NASA's MODIS and VIIRS fire detections into one weekly calendar from 2001
+to today.**
 
-| Time | Picture | Voice-over | Caption |
-|---|---|---|---|
-| 0-5 s | Globe on 2020, detections lighting up over the Pantanal; the sonification of that year plays | (no voice; the sound of the weeks of 2020 as notes) | Pantanal, 2020 |
-| 5-14 s | Yearly totals view (bottom strip, switch to "Yearly totals"): the raw MODIS and VIIRS lines and the jump at 2012 | "Two satellites watch fire from space. They see it differently, so joining their records makes a jump in 2012 that is not real." | Two sensors, one artificial jump in 2012 |
-| 14-21 s | Switch back to "Calendar" (harmonized weekly heatmap), then turn on Ghosts only on the globe | "We convert MODIS into VIIRS-equivalent weekly counts. Tested one year at a time, it beats a monthly ratio in 9 of 14 years." | Weekly error 217.56 vs 240.27, ahead in 9 of 14 years. 52.3% of S-NPP detections had no Aqua match in the same overpass, 2012-2021 |
-| 21-26 s | Press Select area and drag a rectangle on the globe; the calendar marks unusual weeks and the critical period | "Select any area: its calendar, unusual weeks and critical period follow." | Your area, its unusual weeks, its critical period. One conversion factor for the whole region |
-| 26-30 s | Outlook tab on the globe | "NASA plans to end MODIS science in 2027. This bridges 26 years of fire." | MODIS science projected to end in 2027 (NASA). 2001-2026, one calendar |
+70 spoken words, about 28 seconds at a calm pace. The hard limit is 30 seconds: a longer video
+makes the project ineligible for Global Judging, so the final cut should end at 29 seconds or
+less. Captions are the on-screen text and double as the English subtitles.
 
-Spoken word count: 71 (23 + 23 + 11 + 14 across the four voiced rows).
+| Time | Beat | Picture | Voice-over | Caption |
+|---|---|---|---|---|
+| 0-3 s | Who we are | The planet cover, turning slowly, the five regions listed | "We are Os Fiscal de Rejunte." | Os Fiscal de Rejunte, São Paulo. NASA Space Apps 2026 |
+| 3-8 s | Challenge and what moved us | Click Pantanal, the globe flies in. Bottom strip on "Yearly totals": the raw MODIS and VIIRS lines and the jump at 2012 | "NASA's MODIS fire record is ending. Its successor, VIIRS, counts far more fires." | Challenge: Harmonization of MODIS and VIIRS Hot Spots. MODIS science projected to end in 2027 (NASA) |
+| 8-12 s | Project name and hook | Switch to "Calendar": the harmonized weekly heatmap, 2001 to 2026 | "FireSeam joins both into one weekly calendar since 2001." | FireSeam. One calendar, 2001-2026 |
+| 12-22 s | How it works, prototype, NASA data | Right panel "How it was checked", then press Select area and drag a rectangle: the calendar marks the unusual weeks and the critical period | "With NASA FIRMS data we put both on one scale, and show where that failed. Select any area: its unusual weeks appear." | NASA FIRMS: MODIS C6.1 and VIIRS S-NPP 375 m. Tested one year at a time. Passed in 3 of 5 regions; the other two are labelled |
+| 22-29 s | Impact and what comes next | Back to the cover: five regions, each with its validation state. Then open Briefing | "Five regions, five continents. A fire manager sees, on one page, when a week is out of the ordinary." | One-page briefing, English and Portuguese. Any region can be added |
 
-The voice-over no longer says the two error figures or the ghost line; they stay in the caption.
+Spoken word count: 70 (6 + 13 + 10 + 22 + 19).
+
+## How it follows the 30-second model
+
+| Model beat | Model time | Here |
+|---|---|---|
+| Introduce yourselves and the team name | 0:00-0:02 | 0-3 s |
+| The challenge and what inspired you | 0:02-0:05 | 3-8 s |
+| Project name and a hook | 0:05-0:10 | 8-12 s |
+| How it works, the prototype on screen, NASA data | 0:10-0:20 | 12-22 s |
+| Future and impact | 0:20-0:30 | 22-29 s |
+
+The prototype is on screen from the first second. The voice names NASA twice and FIRMS once.
+No error figure is spoken; the validation result stays in the caption.
+
+## Recording notes
+
+- Record the screen first, without sound, following the Picture column. Record the voice
+  separately and lay it over; trim the picture to the voice, not the reverse.
+- Rehearse the clicks: cover, Pantanal, Yearly totals, Calendar, Select area, cover, Briefing.
+  The fly-in from the cover takes part of the 3-8 s beat, so click as the first sentence ends.
+- Keep the app's sound off in the recording, or under the voice at low volume.
+- Check the challenge title in the caption against the challenge page before recording.
+- Upload where anyone can watch without signing in, and open the link in a private window
+  before pasting it into the submission form.
+
+## What not to say
+
+- "Global coverage": it is five regions.
+- "Early warning system": the alert is a retrospective rule on data that ends on
+  11 November 2026.
+- "Risk" or "burned area": the counts are satellite detections.
+- That the conversion works everywhere: it passed in three of five regions.
 
 ## Numbers used
 
 | Number | Source file | Key |
 |---|---|---|
-| 2020 | `web/public/data/metrics.json` | `events[year=2020]`, `pairing.by_year[year=2020]` |
-| 52.3% | `web/public/data/metrics.json` | `pairing.by_year`: sum(`viirs_unmatched` x `viirs_n`) / sum(`viirs_n`) over 2012-2021 |
-| 217.56 | `web/public/data/metrics.json` | `weekly_total.mae_model` |
-| 240.27 | `web/public/data/metrics.json` | `weekly_total.mae_baseline` |
-| 9 of 14 years | `web/public/data/metrics.json` | `weekly_total.years_won`, `weekly_total.years` |
-| 2012 jump | `web/public/data/metrics.json` | `by_year[year=2012].ratio_raw` (raw VIIRS to MODIS ratio, 3.4 to 4.4 across 2012-2025, as a yearly ratio); the first year with VIIRS in `web/public/data/calendar.json` `meta.coverage.viirs` |
-| 26 years | `web/public/data/calendar.json` | `weeks` span 2001 to 2026 |
+| 2001 to 2026 | `web/public/data/calendar.json` | `weeks` span |
+| Five regions | `web/public/data/regions.json` | one row per region |
+| 3 of 5 regions passed | `web/public/data/regions.json` | acceptance state of each row: Pantanal, Iberia and Southern Africa accepted; Indonesia and Northern Australia baseline |
+| Jump at 2012 | `web/public/data/metrics.json` | `by_year[year=2012].ratio_raw`; first year with VIIRS in `calendar.json` `meta.coverage.viirs` |
+| "counts far more fires" | `web/public/data/metrics.json` | `by_year[].ratio_raw`, raw VIIRS to MODIS yearly ratio in the Pantanal, 3.4 to 4.4 across 2012-2025 |
 | 2027 | NASA Science, editor's note in "Terra: The End of An Era" (see Sources) | end of science projected: Terra February 2027, Aqua September 2027 |
 
 ## Sources

@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔥 MODIS-VIIRS Harmonizer
+# 🔥 FireSeam
 
 **One consistent weekly fire-activity calendar for the Pantanal, 2001-2026, in VIIRS-equivalent counts.**
 
@@ -19,7 +19,7 @@ MODIS (about 1 km pixels, active since 2000) and VIIRS (375 m pixels, since 2012
 fire the same way. In our Pantanal bounding box VIIRS reports several times more detections per
 week than MODIS, so simply stacking the two records creates an artificial jump in 2012. NASA
 projects the end of science activities for Terra in February 2027 and for Aqua in September
-2027, which would leave VIIRS as the only continuing record. This project turns the MODIS
+2027, which would leave VIIRS as the only continuing record. FireSeam closes the seam between the two records: it turns the MODIS
 record into VIIRS-equivalent weekly counts for the Pantanal region, so that 2001-2026 reads as
 one calendar. Everything is precomputed in Python and served as static files; there is no
 backend.
@@ -28,7 +28,7 @@ backend.
 
 - **Harmonized weekly calendar** (`calendar.json`), 26 years x 52 weeks = 1352 weeks. Each week
   is `observed` (VIIRS data exists), `estimated` (MODIS converted to VIIRS-equivalent) or `gap`
-  (no usable sensor). In the published calendar: 753 observed, 579 estimated, 20 gap.
+  (no usable sensor). In the published calendar: 761 observed, 580 estimated, 11 gap.
 - **3D globe** with every detection as a point, plus "ghosts": detections that only one of Aqua
   or S-NPP saw in the same overpass window.
 - **Fire events**: space-time connected components of detections, counted per sensor and year.
@@ -102,7 +102,10 @@ Ghost shares use a 2 km radius and a 180 minute window.
 - **Validation.** Leave-one-year-out against a monthly-ratio baseline fitted inside each fold.
   A model is accepted only if its mean weekly error is lower than the baseline's and it wins at
   least 8 of the 14 years.
-- **2026** is partial and partly near-real-time. It is excluded from training and scoring.
+- **2026** is partial and partly near-real-time. It is excluded from training and scoring. The
+  2026 files cover MODIS to 2026-11-13 and VIIRS to 2026-11-02 with no hole (re-downloaded on
+  13 November 2026); the 2026 gap weeks are 46 to 52, after the last downloaded day. Earlier
+  published value: 20 gap weeks, with 2026 weeks 24 to 31 as gaps.
 - **Cube.** `cube/<year>.bin` holds, for each year, the non-empty (cell, week) entries with the
   Terra + Aqua count and the S-NPP count. The browser reads it to rebuild a calendar for any
   rectangle of cells, with no backend. The published cube is 26 year files, about 1.5 MB in
