@@ -54,8 +54,9 @@ def test_sat_covers_aqua_and_terra():
     assert not config.sat_covers("Aqua", 2002, 27)
     assert not config.sat_covers("Aqua", 2002, 30)
     assert config.sat_covers("Aqua", 2003, 10)
-    assert config.sat_covers("Terra", 2026, 23)
-    assert not config.sat_covers("Terra", 2026, 24)
+    assert config.sat_covers("Terra", 2026, 24)
+    assert config.sat_covers("Terra", 2026, 45)
+    assert not config.sat_covers("Terra", 2026, 46)
     assert not config.sat_covers("Terra", 2001, 25)
 
 
@@ -71,7 +72,7 @@ def test_is_nrt():
 
 def test_coverage_meta_shape():
     meta = config.coverage_meta()
-    assert meta["modis"][0] == ["2001-01-01", "2026-06-13"]
+    assert meta["modis"][0] == ["2001-01-01", "2026-11-13"]
     assert set(meta) == {"modis", "viirs"}
 
 

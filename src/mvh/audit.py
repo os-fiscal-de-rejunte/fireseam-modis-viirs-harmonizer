@@ -4,9 +4,19 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from pathlib import Path
 
-import pandas as pd
+if __name__ == "__main__":
+    from mvh.regions import region_from_argv
+
+    _region = region_from_argv(sys.argv[1:])
+    if _region:
+        os.environ["MVH_REGION"] = _region
+
+import pandas as pd  # noqa: E402
+
+from mvh import config  # noqa: E402
 
 KEY = ["latitude", "longitude", "acq_date", "acq_time", "satellite"]
 SENSOR_DIRS = {"modis": "modis", "viirs": "viirs_snpp"}
@@ -223,10 +233,14 @@ def build_report(frames: dict[str, pd.DataFrame]) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Audit the raw FIRMS CSVs.")
+    parser.add_argument("--region", default="pantanal")
     parser.add_argument("--raw", type=Path, default=None)
-    parser.add_argument("--out", type=Path, default=Path("docs/data-audit.md"))
+    parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args()
-    raw = args.raw or Path(os.environ["FIRMS_OUT_DIR"])
+    raw = args.raw or config.raw_root()
+    if args.out is None:
+        suffix = "" if config.REGION_ID == "pantanal" else f"-{config.REGION_ID}"
+        args.out = Path(f"docs/data-audit{suffix}.md")
     frames = {s: load_raw(raw / d) for s, d in SENSOR_DIRS.items()}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(build_report(frames) + "\n", encoding="utf-8")

@@ -20,7 +20,9 @@ _WEEK_KEYS = (
     "harmonized",
     "status",
     "nrt",
+    "why",
 )
+_WHY_CODES = ("pre_viirs", "viirs_outage", "modis_outage", "not_downloaded")
 _N_WEEKS = (config.YEAR_END - config.YEAR_START + 1) * config.WEEKS_PER_YEAR
 
 
@@ -62,6 +64,10 @@ def _check_calendar(cal) -> str:
         _fail(f"{name}: meta.method must be 'model' or 'baseline'")
     if meta.get("coverage") != config.coverage_meta():
         _fail(f"{name}: meta.coverage does not match config.COVERAGE")
+    if meta.get("region") != config.REGION_ID:
+        _fail(f"{name}: meta.region must equal {config.REGION_ID!r}")
+    if (meta.get("nx"), meta.get("ny")) != (config.NX, config.NY):
+        _fail(f"{name}: meta.nx, meta.ny must equal {config.NX}, {config.NY}")
 
     weeks = cal.get("weeks")
     if not isinstance(weeks, list) or len(weeks) != _N_WEEKS:
@@ -71,6 +77,7 @@ def _check_calendar(cal) -> str:
         for y in range(config.YEAR_START, config.YEAR_END + 1)
         for w in range(1, config.WEEKS_PER_YEAR + 1)
     )
+    statuses: list[tuple[int, int, str]] = []
     for i, wk in enumerate(weeks):
         at = f"{name}: weeks[{i}]"
         if not isinstance(wk, dict):
@@ -118,6 +125,16 @@ def _check_calendar(cal) -> str:
             _fail(f"{at}: lo and hi must be numbers >= 0 when status is 'estimated'")
         elif lo > hi:
             _fail(f"{at}: lo must be <= hi")
+        why = wk["why"]
+        if (why is None) != (status == "observed"):
+            _fail(f"{at}.why must be null iff status is 'observed'")
+        if why is not None and why not in _WHY_CODES:
+            _fail(f"{at}.why must be one of {list(_WHY_CODES)}")
+        if why != config.why_code(status, year, week):
+            _fail(f"{at}.why must be {config.why_code(status, year, week)!r}")
+        statuses.append((year, week, status))
+    if meta.get("as_of") != config.as_of_date(statuses):
+        _fail(f"{name}: meta.as_of must be the end of the last non-gap week")
     return meta["method"]
 
 
@@ -214,7 +231,7 @@ def _check_cube(root: Path, cal: dict) -> None:
             _fail(f"cube/{path.name}: not listed in cube/index.json")
 
 
-def _check_metrics(metrics, method: str) -> None:
+def _check_metrics(metrics, method: str, light: bool = False) -> None:
     name = "metrics.json"
 
     def need(obj, key, kind, at):
@@ -258,22 +275,23 @@ def _check_metrics(metrics, method: str) -> None:
     for k in ("years_won", "years"):
         need(to, k, "int", "terra_only")
 
-    for i, row in enumerate(need(metrics, "events", "list", "root")):
-        for k in ("year", "modis", "viirs"):
-            need(row, k, "int", f"events[{i}]")
+    if not light:
+        for i, row in enumerate(need(metrics, "events", "list", "root")):
+            for k in ("year", "modis", "viirs"):
+                need(row, k, "int", f"events[{i}]")
 
-    pr = need(metrics, "pairing", "obj", "root")
-    need(pr, "radius_km", "num", "pairing")
-    need(pr, "window_min", "int", "pairing")
-    hy = need(pr, "headline_years", "list", "pairing")
-    if len(hy) != 2 or not all(_is_int(v) for v in hy):
-        _fail(f"{name}: pairing.headline_years must be two ints")
-    for i, row in enumerate(need(pr, "by_year", "list", "pairing")):
-        at = f"pairing.by_year[{i}]"
-        for k in ("year", "aqua_n", "viirs_n", "dt_p50_min"):
-            need(row, k, "int", at)
-        for k in ("aqua_unmatched", "viirs_unmatched"):
-            need(row, k, "frac", at)
+        pr = need(metrics, "pairing", "obj", "root")
+        need(pr, "radius_km", "num", "pairing")
+        need(pr, "window_min", "int", "pairing")
+        hy = need(pr, "headline_years", "list", "pairing")
+        if len(hy) != 2 or not all(_is_int(v) for v in hy):
+            _fail(f"{name}: pairing.headline_years must be two ints")
+        for i, row in enumerate(need(pr, "by_year", "list", "pairing")):
+            at = f"pairing.by_year[{i}]"
+            for k in ("year", "aqua_n", "viirs_n", "dt_p50_min"):
+                need(row, k, "int", at)
+            for k in ("aqua_unmatched", "viirs_unmatched"):
+                need(row, k, "frac", at)
 
     unc = need(metrics, "uncertainty", "obj", "root")
     for mode in ("full", "terra"):
@@ -286,10 +304,11 @@ def _check_metrics(metrics, method: str) -> None:
         need(dropped, k, "int", "filters.dropped_type")
 
 
-def validate_export(root: Path) -> None:
+def validate_export(root: Path, light: bool = False) -> None:
     root = Path(root)
     cal = _load(root / "calendar.json")
     method = _check_calendar(cal)
-    _check_points(root)
+    if not light:
+        _check_points(root)
     _check_cube(root, cal)
-    _check_metrics(_load(root / "metrics.json"), method)
+    _check_metrics(_load(root / "metrics.json"), method, light)

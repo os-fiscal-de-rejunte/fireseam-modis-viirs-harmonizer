@@ -4,17 +4,27 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
+import sys
 import time
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
+if __name__ == "__main__":
+    from mvh.regions import region_from_argv
 
-from mvh import config, events, pairing
-from mvh.grid import weekly_cube, weekly_totals
-from mvh.harmonizer import harmonize
-from mvh.ingest import load_firms
-from mvh.schema import validate_export
+    _region = region_from_argv(sys.argv[1:])
+    if _region:
+        os.environ["MVH_REGION"] = _region
+
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+
+from mvh import config, events, pairing, regions_index  # noqa: E402
+from mvh.grid import weekly_cube, weekly_totals  # noqa: E402
+from mvh.harmonizer import harmonize  # noqa: E402
+from mvh.ingest import load_firms  # noqa: E402
+from mvh.schema import validate_export  # noqa: E402
 
 _DEFAULT_OUT = Path(__file__).resolve().parents[2] / "web" / "public" / "data"
 _STAGE_START = time.perf_counter()
@@ -25,6 +35,10 @@ def _stage(label: str) -> None:
     now = time.perf_counter()
     print(f"{label}: {now - _STAGE_START:.1f}s", flush=True)
     _STAGE_START = now
+
+
+def _why(status: str, year: int, week: int) -> str | None:
+    return config.why_code(status, year, week)
 
 
 def _calendar(totals: pd.DataFrame, weekly: pd.DataFrame, method: str, uncertainty: dict) -> dict:
@@ -44,6 +58,7 @@ def _calendar(totals: pd.DataFrame, weekly: pd.DataFrame, method: str, uncertain
         if viirs is None and p is not None:
             band = uncertainty["full" if cov_aqua[i] else "terra"]
             lo, hi = round(p * band["q10"], 1), round(p * band["q90"], 1)
+        status = "observed" if viirs is not None else "estimated" if p is not None else "gap"
         weeks.append(
             {
                 "year": year,
@@ -54,13 +69,10 @@ def _calendar(totals: pd.DataFrame, weekly: pd.DataFrame, method: str, uncertain
                 "lo": lo,
                 "hi": hi,
                 "harmonized": viirs if viirs is not None else p,
-                "status": "observed"
-                if viirs is not None
-                else "estimated"
-                if p is not None
-                else "gap",
+                "status": status,
                 "nrt": (viirs is not None and config.is_nrt("viirs", year, week))
                 or (modis is not None and config.is_nrt("modis", year, week)),
+                "why": _why(status, year, week),
             }
         )
     meta = {
@@ -68,6 +80,10 @@ def _calendar(totals: pd.DataFrame, weekly: pd.DataFrame, method: str, uncertain
         "cell_deg": config.CELL_DEG,
         "method": method,
         "coverage": config.coverage_meta(),
+        "region": config.REGION_ID,
+        "nx": config.NX,
+        "ny": config.NY,
+        "as_of": config.as_of_date([(w["year"], w["week"], w["status"]) for w in weeks]),
     }
     return {"meta": meta, "weeks": weeks}
 
@@ -81,8 +97,12 @@ def _points(modis, viirs, modis_ghost, viirs_ghost) -> dict[int, dict]:
         | both["night"].to_numpy().astype(np.uint8) << 2
         | (both["sat"] == "Terra").to_numpy().astype(np.uint8) << 3
     )
-    lon = np.clip(np.round((both["lon"].to_numpy() + 58.5) * 1000), 0, 65535).astype("<u2")
-    lat = np.clip(np.round((both["lat"].to_numpy() + 22.5) * 1000), 0, 65535).astype("<u2")
+    lon = np.clip(np.round((both["lon"].to_numpy() - config.BBOX[0]) * 1000), 0, 65535).astype(
+        "<u2"
+    )
+    lat = np.clip(np.round((both["lat"].to_numpy() - config.BBOX[1]) * 1000), 0, 65535).astype(
+        "<u2"
+    )
     frp = np.minimum(255, np.round(16 * np.log2(1 + both["frp"].to_numpy(np.float64)))).astype("u1")
     doy = both["doy"].to_numpy().astype("<u2")
     year = both["year"].to_numpy()
@@ -149,6 +169,32 @@ def _clean(out: Path) -> None:
             p.unlink(missing_ok=True)
 
 
+def _by_year(metrics: dict) -> list[dict]:
+    # a year without any MODIS detection has no raw ratio; JSON cannot hold NaN
+    return [
+        {**r, "ratio_raw": r["ratio_raw"] if np.isfinite(r["ratio_raw"]) else 0.0}
+        for r in metrics["by_year"]
+    ]
+
+
+def _filters(modis: pd.DataFrame, viirs: pd.DataFrame) -> dict:
+    return {
+        "dropped_type": {
+            "modis": int(modis.attrs.get("dropped_type", 0)),
+            "viirs": int(viirs.attrs.get("dropped_type", 0)),
+        }
+    }
+
+
+def _write_cube(out: Path, cube_blocks: dict[int, dict]) -> None:
+    (out / "cube").mkdir(exist_ok=True)
+    for y, c in cube_blocks.items():
+        (out / "cube" / f"{y}.bin").write_bytes(c["blob"])
+    cube_index = {"nx": config.NX, "ny": config.NY}
+    cube_index["years"] = {str(y): {"n": c["n"]} for y, c in cube_blocks.items()}
+    _write_json(out / "cube" / "index.json", cube_index)
+
+
 def export_all(raw_root: Path | None, out: Path) -> None:
     global _STAGE_START
     _STAGE_START = time.perf_counter()
@@ -169,14 +215,9 @@ def export_all(raw_root: Path | None, out: Path) -> None:
     evts = events.events_per_year(modis, viirs)
     _stage("points+events")
 
-    # a year without any MODIS detection has no raw ratio; JSON cannot hold NaN
-    by_year = [
-        {**r, "ratio_raw": r["ratio_raw"] if np.isfinite(r["ratio_raw"]) else 0.0}
-        for r in metrics["by_year"]
-    ]
     metrics = {
         **metrics,
-        "by_year": by_year,
+        "by_year": _by_year(metrics),
         "events": evts,
         "pairing": {
             "radius_km": pairing.RADIUS_KM,
@@ -184,12 +225,7 @@ def export_all(raw_root: Path | None, out: Path) -> None:
             "headline_years": list(pairing.HEADLINE_YEARS),
             "by_year": [{**r, "dt_p50_min": int(round(r["dt_p50_min"]))} for r in pair_rows],
         },
-        "filters": {
-            "dropped_type": {
-                "modis": int(modis.attrs.get("dropped_type", 0)),
-                "viirs": int(viirs.attrs.get("dropped_type", 0)),
-            }
-        },
+        "filters": _filters(modis, viirs),
     }
     calendar = _calendar(totals, weekly, metrics["method"], metrics["uncertainty"])
 
@@ -203,23 +239,92 @@ def export_all(raw_root: Path | None, out: Path) -> None:
         (out / "points" / f"{y}.bin").write_bytes(p["blob"])
         index[str(y)] = {"n": p["n"], "week_start": p["week_start"]}
     _write_json(out / "points" / "index.json", index)
-    (out / "cube").mkdir(exist_ok=True)
-    for y, c in cube_blocks.items():
-        (out / "cube" / f"{y}.bin").write_bytes(c["blob"])
-    cube_index = {"nx": config.NX, "ny": config.NY}
-    cube_index["years"] = {str(y): {"n": c["n"]} for y, c in cube_blocks.items()}
-    _write_json(out / "cube" / "index.json", cube_index)
+    _write_cube(out, cube_blocks)
     validate_export(out)
     _stage("write+validate")
 
 
+def export_light(raw_root: Path | None, out: Path) -> None:
+    """Calendar, cube and metrics only: no pairing, events or points."""
+    global _STAGE_START
+    _STAGE_START = time.perf_counter()
+    out = Path(out)
+    modis = load_firms("modis", raw_root)
+    viirs = load_firms("viirs", raw_root)
+    _stage("load")
+    cube = weekly_cube(modis, viirs)
+    totals = weekly_totals(cube)
+    _stage("cube")
+    weekly, metrics = harmonize(cube)
+    _stage("harmonize")
+    cube_blocks = _cube_blocks(cube)
+    keep = ("method", "accepted", "weekly_total", "terra_only", "uncertainty")
+    metrics = {
+        **{k: metrics[k] for k in keep},
+        "by_year": _by_year(metrics),
+        "filters": _filters(modis, viirs),
+    }
+    calendar = _calendar(totals, weekly, metrics["method"], metrics["uncertainty"])
+
+    out.mkdir(parents=True, exist_ok=True)
+    _clean(out)
+    _write_json(out / "calendar.json", calendar)
+    _write_json(out / "metrics.json", metrics)
+    _write_cube(out, cube_blocks)
+    validate_export(out, light=True)
+    _stage("write+validate")
+
+
+def _publish(stage: Path, target: Path) -> None:
+    """Replace the exported files of `target` with those of `stage`, then remove `stage`."""
+    target.mkdir(parents=True, exist_ok=True)
+    for name in ("calendar.json", "metrics.json", "cube", "points"):
+        old = target / name
+        if old.is_dir():
+            shutil.rmtree(old)
+        else:
+            old.unlink(missing_ok=True)
+        if (stage / name).exists():
+            shutil.move(stage / name, old)
+    shutil.rmtree(stage)
+
+
+def _check_raw(raw: Path, region_id: str) -> None:
+    for path in (raw, raw / "modis", raw / "viirs_snpp"):
+        if not path.is_dir():
+            raise SystemExit(
+                f"raw folder is missing: {path}; run fetch_firms.py --region {region_id}"
+            )
+    if region_id != "pantanal" and not (raw / "coverage.json").is_file():
+        raise SystemExit(
+            f"coverage.json is missing in {raw}; run fetch_firms.py --region {region_id}"
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m mvh.export")
+    parser.add_argument("--region", default="pantanal")
     parser.add_argument("--raw", type=Path, default=None)
     parser.add_argument("--out", type=Path, default=_DEFAULT_OUT)
     args = parser.parse_args()
+    if args.region != config.REGION_ID:
+        raise SystemExit(f"config was loaded for {config.REGION_ID!r}, not {args.region!r}")
+    if args.raw is not None and config.REGION_ID != "pantanal":
+        raise SystemExit("use FIRMS_OUT_DIR for a region other than the Pantanal")
+    raw = args.raw or config.raw_root()
+    _check_raw(raw, config.REGION_ID)
     started = time.perf_counter()
-    export_all(args.raw, args.out)
+    target = args.out if config.REGION_ID == "pantanal" else args.out / "regions" / config.REGION_ID
+    stage = args.out / f".stage-{config.REGION_ID}"
+    shutil.rmtree(stage, ignore_errors=True)
+    try:
+        (export_light if config.REGION.light else export_all)(raw, stage)
+        _publish(stage, target)
+    except BaseException:
+        shutil.rmtree(stage, ignore_errors=True)
+        raise
+    regions_index.write(args.out)
+    regions_index.validate(args.out)
     print(f"total: {time.perf_counter() - started:.1f}s")
 
 

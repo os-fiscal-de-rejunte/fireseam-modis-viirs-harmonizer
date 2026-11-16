@@ -31,9 +31,9 @@ def test_sample_is_valid():
 
 
 def test_gap_week_is_accepted(export):
-    # 2026 week 24: no sensor covers it
+    # 2026 week 46: no sensor covers it
     def check(weeks):
-        wk = weeks[25 * 52 + 23]
+        wk = weeks[25 * 52 + 45]
         assert (wk["viirs"], wk["pred"], wk["harmonized"], wk["status"]) == (
             None,
             None,
@@ -85,6 +85,8 @@ def _obs(w, **kw):
             lambda w: w[0].update(lo=None),
             r"lo and hi must be numbers >= 0 when status is 'estimated'",
         ),
+        (lambda w: _obs(w, why="pre_viirs"), r"why must be null iff status is 'observed'"),
+        (lambda w: w[0].update(why="cloud"), r"why must be one of"),
     ],
 )
 def test_bad_calendar_rejected(export, mutate, match):
@@ -177,4 +179,24 @@ def test_orphan_cube_rejected(export):
 def test_cube_grid_must_match_config(export):
     _edit(export / "cube" / "index.json", lambda d: d.update(nx=44))
     with pytest.raises(ValueError, match="nx, ny must equal 45, 70"):
+        validate_export(export)
+
+
+def test_bad_as_of_rejected(export):
+    _edit(export / "calendar.json", lambda d: d["meta"].update(as_of="2026-11-05"))
+    with pytest.raises(ValueError, match=r"meta\.as_of must be the end of the last non-gap week"):
+        validate_export(export)
+
+
+def test_meta_grid_must_match_config(export):
+    _edit(export / "calendar.json", lambda d: d["meta"].update(nx=44))
+    with pytest.raises(ValueError, match=r"meta\.nx, meta\.ny must equal 45, 70"):
+        validate_export(export)
+
+
+def test_light_export_is_valid(export):
+    shutil.rmtree(export / "points")
+    _edit(export / "metrics.json", lambda m: (m.pop("events"), m.pop("pairing")))
+    validate_export(export, light=True)
+    with pytest.raises(ValueError):
         validate_export(export)

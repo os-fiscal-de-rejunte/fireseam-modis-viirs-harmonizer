@@ -44,6 +44,28 @@ def test_sample_export_is_valid(exported):
     validate_export(exported)
 
 
+def test_why_codes_and_as_of(exported):
+    cal = json.loads((exported / "calendar.json").read_text(encoding="utf-8"))
+    by = {(w["year"], w["week"]): w for w in cal["weeks"]}
+    want = {
+        (2020, 13): None,
+        (2005, 10): "pre_viirs",
+        (2012, 3): "pre_viirs",
+        (2022, 31): "viirs_outage",
+        (2001, 25): "modis_outage",
+        (2026, 25): None,
+        (2026, 46): "not_downloaded",
+        (2026, 44): "not_downloaded",
+    }
+    assert {k: by[k]["why"] for k in want} == want
+    assert (by[(2026, 46)]["status"], by[(2026, 44)]["status"]) == ("gap", "estimated")
+    assert by[(2026, 25)]["status"] == "observed"
+    assert all((w["why"] is None) == (w["status"] == "observed") for w in cal["weeks"])
+    meta = cal["meta"]
+    assert (meta["region"], meta["nx"], meta["ny"]) == ("pantanal", 45, 70)
+    assert meta["as_of"] == "2026-11-11"  # end of 2026 week 45
+
+
 def test_only_years_with_detections_get_a_bin(exported):
     index = json.loads((exported / "points" / "index.json").read_text(encoding="utf-8"))
     assert set(index) == {"2011", "2020"}
@@ -103,7 +125,7 @@ def test_week_status(exported):
     early = by[(2005, 10)]
     assert early["status"] == "estimated"
     assert early["pred"] is not None
-    assert by[(2026, 28)]["status"] == "gap"
+    assert by[(2026, 50)]["status"] == "gap"
 
 
 def _read_cube(path: Path) -> dict[str, np.ndarray]:
