@@ -54,11 +54,11 @@ export function weekStats(calendar) {
   return out;
 }
 
-export function criticalPeriod(calendar) {
+// Per-week mean of the non-null harmonized values over 2001-2025, indexed 1..52.
+export function typicalYear(calendar) {
   const byYear = index(calendar);
   const years = referenceYears(byYear, null);
   const mean = new Array(WEEKS + 1).fill(0);
-  let total = 0;
   for (let week = 1; week <= WEEKS; week++) {
     let sum = 0;
     let n = 0;
@@ -70,8 +70,14 @@ export function criticalPeriod(calendar) {
       }
     }
     mean[week] = n ? sum / n : 0;
-    total += mean[week];
   }
+  return mean;
+}
+
+export function criticalPeriod(calendar) {
+  const mean = typicalYear(calendar);
+  let total = 0;
+  for (let week = 1; week <= WEEKS; week++) total += mean[week];
   if (!(total > 0)) return null;
   const target = CRITICAL_SHARE * total - 1e-9;
   let best = null;
@@ -96,9 +102,17 @@ function cumulative(row, week) {
 
 export function yearToDate(calendar, year, week) {
   const byYear = index(calendar);
-  const value = cumulative(byYear.get(year), week);
-  const refs = referenceYears(byYear, year).map((y) => cumulative(byYear.get(y), week));
-  return { value, percentile: percentileOf(value, refs) };
+  const target = byYear.get(year);
+  const dropped = new Set();
+  for (let k = 1; k <= week; k++) if (target[k] === null) dropped.add(k);
+  const sum = (row) => {
+    let s = 0;
+    for (let k = 1; k <= week; k++) if (!dropped.has(k) && row[k] !== null) s += row[k];
+    return s;
+  };
+  const value = sum(target);
+  const refs = referenceYears(byYear, year).map((y) => sum(byYear.get(y)));
+  return { value, percentile: percentileOf(value, refs), missing: dropped.size };
 }
 
 export function isSufficient(calendar) {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { weekStats, criticalPeriod, yearToDate, isSufficient, analyze } from "./stats.js";
+import { readFileSync } from "node:fs";
+import { weekStats, criticalPeriod, yearToDate, isSufficient, analyze, typicalYear } from "./stats.js";
 
 // value(year, week) -> harmonized (null allowed), for 2001-2026 x 52 weeks
 function mk(value) {
@@ -51,11 +52,17 @@ describe("criticalPeriod", () => {
 describe("yearToDate", () => {
   it("compares the cumulative total with the other years", () => {
     const r = yearToDate(mk((y, w) => (w <= 3 ? y - 2000 : 0)), 2020, 3);
-    expect(r).toEqual({ value: 60, percentile: 19 / 24 });
+    expect(r).toEqual({ value: 60, percentile: 19 / 24, missing: 0 });
   });
   it("skips null weeks", () => {
     const r = yearToDate(mk((y, w) => (w === 2 ? null : 1)), 2020, 3);
     expect(r.value).toBe(2);
+    expect(r.missing).toBe(1);
+  });
+  it("drops the target year's null weeks from every reference year", () => {
+    const cal = mk((y, w) => (w > 3 ? 0 : y === 2026 ? (w === 2 ? null : 12) : 10));
+    // 2026: 12 + 12 = 24. Each reference year without week 2: 10 + 10 = 20.
+    expect(yearToDate(cal, 2026, 3)).toEqual({ value: 24, percentile: 1, missing: 1 });
   });
 });
 
@@ -76,4 +83,27 @@ describe("isSufficient and analyze", () => {
     expect([a.critical.start, a.critical.end]).toEqual([30, 30]);
     expect(a.stats.size).toBe(1352);
   });
+});
+
+describe("typicalYear", () => {
+  it("is the per-week mean over 2001-2025", () => {
+    const t = typicalYear(mk((y, w) => ({ 30: 10, 31: 40, 32: 40, 33: 10 })[w] ?? 0));
+    expect(t[31]).toBe(40);
+    expect(t[1]).toBe(0);
+  });
+});
+
+describe("season cases fixture", () => {
+  const fixture = JSON.parse(readFileSync(new URL("../../tests/fixtures/season_cases.json", import.meta.url), "utf8"));
+  for (const c of fixture.cases) {
+    it(`agrees with criticalPeriod: ${c.name}`, () => {
+      const weeks = [];
+      for (let year = fixture.years[0]; year <= fixture.years[1]; year++)
+        for (let week = 1; week <= 52; week++) weeks.push({ year, week, harmonized: c.profile[String(week)] ?? 0, status: "observed" });
+      const got = criticalPeriod({ meta: {}, weeks });
+      if (c.critical === null) expect(got).toBeNull();
+      else expect([got.start, got.end]).toEqual(c.critical);
+      expect(got !== null && (got.start === 1 || got.end === 52)).toBe(c.season_wraps);
+    });
+  }
 });
