@@ -4,8 +4,8 @@
 
 **One consistent weekly fire-activity calendar for the Pantanal, 2001-2026, in VIIRS-equivalent counts.**
 
-[![CI](https://github.com/os-fiscal-de-rejunte/modis-viirs-harmonizer/actions/workflows/ci.yml/badge.svg)](https://github.com/os-fiscal-de-rejunte/modis-viirs-harmonizer/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/os-fiscal-de-rejunte/modis-viirs-harmonizer?sort=semver)](https://github.com/os-fiscal-de-rejunte/modis-viirs-harmonizer/releases)
+[![CI](https://github.com/os-fiscal-de-rejunte/fireseam-modis-viirs-harmonizer/actions/workflows/ci.yml/badge.svg)](https://github.com/os-fiscal-de-rejunte/fireseam-modis-viirs-harmonizer/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/os-fiscal-de-rejunte/fireseam-modis-viirs-harmonizer?sort=semver)](https://github.com/os-fiscal-de-rejunte/fireseam-modis-viirs-harmonizer/releases)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org)
 [![NASA Space Apps 2026](https://img.shields.io/badge/NASA-Space%20Apps%202026-0B3D91?logo=nasa&logoColor=white)](https://www.spaceappschallenge.org)
 
@@ -142,8 +142,8 @@ Ghost shares use a 2 km radius and a 180 minute window.
 ## Quickstart
 
 ```bash
-git clone https://github.com/os-fiscal-de-rejunte/modis-viirs-harmonizer.git
-cd modis-viirs-harmonizer
+git clone https://github.com/os-fiscal-de-rejunte/fireseam-modis-viirs-harmonizer.git
+cd fireseam-modis-viirs-harmonizer
 cp .env.example .env              # set FIRMS_OUT_DIR to your raw FIRMS folder
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
